@@ -27,6 +27,47 @@ Each node knows its place in the tree. Call `$email->build()` once and the entir
 
 ---
 
+## Structure-first pattern
+
+Because nodes are just PHP object properties, you can **declare the email skeleton first, then fill in the content separately**. This separates layout decisions from copy decisions — exactly like drag-and-drop in a visual builder, but in code.
+
+```php
+// ── 1. Skeleton — declare every section up front ──────────────────────────
+$email = new EmailDocument($sheet->emailStyle());
+$email->body = new Body();
+$email->body->setCSS($sheet->responsiveCss());
+
+$email->body->banner   = FullWidthImage::make($heroSrc, 'Hero');
+$email->body->gap1     = Spacer::make(sheet: $sheet);
+$email->body->intro    = Section::make(sheet: $sheet);
+$email->body->gap2     = Spacer::make(sheet: $sheet);
+$email->body->features = TwoColumn::make(sheet: $sheet);
+$email->body->divider  = Divider::make(sheet: $sheet);
+$email->body->footer   = Section::make(sheet: $sheet);
+
+// ── 2. Content — fill each section independently ──────────────────────────
+$email->body->intro->body->title = new Text('Order confirmed!', 'h1');
+$email->body->intro->body->desc  = new Text('Thanks for your purchase.', 'div');
+$email->body->intro->body->cta   = Button::make('View order', $orderUrl, sheet: $sheet);
+
+$email->body->features->left->img    = new Image($img1, 'Feature A');
+$email->body->features->right->title = new Text('Feature A', 'h2');
+$email->body->features->right->desc  = new Text('Best feature ever.', 'div');
+
+$email->body->footer->body->copy = new Text('© 2025 Acme Corp', 'div');
+
+// ── 3. Render ──────────────────────────────────────────────────────────────
+echo $email->build();
+```
+
+**Why this matters:**
+- You can comment out an entire section (`// $email->body->features = …`) without touching content code.
+- Content writers and layout developers can work in different blocks of the same file.
+- The skeleton reads like a wireframe — `banner → gap → intro → gap → features → divider → footer` — matching the mental model of a designer.
+- Nodes assigned later (step 2) are still accessible via `->` property access because `HasChildren` stores them in an array under the hood. Order of assignment doesn't matter; render order is insertion order.
+
+---
+
 ## Quick start with StyleSheet + Presets
 
 ```php
