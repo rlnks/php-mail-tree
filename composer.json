@@ -16,11 +16,6 @@
             "src/helpers.php"
         ]
     },
-    "autoload-dev": {
-        "psr-4": {
-            "Rlnks\\MailTree\\Tests\\": "tests/"
-        }
-    },
     "authors": [
         {
             "name": "RLNKS",

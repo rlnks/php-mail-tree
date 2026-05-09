@@ -365,6 +365,8 @@ $frame->before_footer = deepclone($spacer);
 |---|---|
 | `__construct(array $style = [])` | Style overrides for `<body>` |
 | `setCSS(string $css)` | Inject `<style>` block — use `$sheet->responsiveCss()` |
+| `setStyle(array $style)` | Merge additional styles |
+| `getStyle(): array` | Full resolved style array |
 
 ### `Container`
 
@@ -376,6 +378,7 @@ Renders as `<table><tbody><tr>`. Children should be `Column` instances.
 | `setClass(string $class)` | CSS class on `<table>` |
 | `setID(string $id)` | id on `<table>` |
 | `setStyle(array $style)` | Merge style overrides |
+| `getStyle(): array` | Full resolved style array |
 
 ### `Column`
 
@@ -386,21 +389,26 @@ Renders as `<td>`.
 | `__construct(array $style = [])` | `['column' => [...]]` |
 | `setClass(string $class)` | CSS class on `<td>` (used for responsive: `col-2`, `col-3`, `section-body`) |
 | `setStyle(array $style)` | Merge style overrides |
+| `getStyle(): array` | Full resolved style array |
 
 ### `Text`
 
 Wraps content in any inline or block tag. With `$tag = null` acts as a transparent wrapper.
 
-| Constructor | |
+| Method | Description |
 |---|---|
-| `new Text(string $text, ?string $tag = null, array $style = [])` | `$tag`: `h1`, `h2`, `h3`, `div`, `p`, `span`, etc. |
+| `__construct(string $text, ?string $tag = null, array $style = [])` | `$tag`: `h1`, `h2`, `h3`, `div`, `p`, `span`, etc. |
+| `setStyle(array $style)` | Merge style overrides |
+| `getStyle(): array` | Full resolved style array |
 
 ### `Image`
 
 | Method | Description |
 |---|---|
-| `__construct(string $src, string $alt, array $style = [])` | |
-| `setSrc(string $src, ?string $alt = null)` | Update after construction |
+| `__construct(string $src = '', string $alt = '', array $style = [])` | |
+| `setSrc(string $src, ?string $alt = null)` | Update src (and optionally alt) after construction |
+| `setStyle(array $style)` | Merge style overrides |
+| `getStyle(): array` | Full resolved style array |
 
 Emits `width`/`height` HTML attributes only when the CSS value is a plain integer (not `%`, `auto`).
 
@@ -409,7 +417,9 @@ Emits `width`/`height` HTML attributes only when the CSS value is a plain intege
 | Method | Description |
 |---|---|
 | `__construct(string $href = '#', array $style = [])` | |
-| `setLink(string $href)` | Update href |
+| `setLink(string $href)` | Update href after construction |
+| `setStyle(array $style)` | Merge style overrides |
+| `getStyle(): array` | Full resolved style array |
 
 ---
 
