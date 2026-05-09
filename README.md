@@ -206,83 +206,228 @@ echo $email->build();
 
 ## StyleSheet
 
-The `StyleSheet` does two things:
+`StyleSheet` is the central style brain of the email. It does two independent things:
 
-### 1. Theme → style arrays
+1. **Theme → style arrays** — you store brand tokens once; generator methods translate them into the CSS property arrays that each node class expects.
+2. **Named-style registry** — a `define` / `get` system that replaces repeating raw style arrays across your template.
 
-Define your brand variables once, then call the generator methods to get properly-nested style arrays for each framework class.
+---
+
+### Vocabulary 1 — Theme variables (design tokens)
+
+The StyleSheet constructor takes **design tokens**, not CSS properties. Tokens are PHP camelCase names that represent a brand concept rather than a specific CSS rule:
+
+| Token | Default | What it represents |
+|---|---|---|
+| `primaryColor` | `#333333` | Brand accent (headings, links, buttons) |
+| `textColor` | `#444444` | Body copy color |
+| `bgColor` | `#f0f0f0` | Outer page/body background |
+| `containerBg` | `#ffffff` | Inner email content background |
+| `borderColor` | `#dddddd` | Dividers, borders |
+| `fontFamily` | `Arial, …` | Font stack |
+| `baseFontSize` | `14px` | Default paragraph size |
+| `lineHeight` | `150%` | Default line height |
+| `containerWidth` | `600` | Email width in px (integer) |
+| `marginWidth` | `30` | Left/right gutter width in px |
+| `spacerHeight` | `20px` | Default vertical spacer height |
+| `buttonRadius` | `4px` | Button corner radius |
+| `buttonHeight` | `50` | Button height in px (integer) |
+| `buttonWidth` | `200` | Button width in px (integer) |
+| `buttonFontSize` | `16px` | Button label size |
+
+**Why camelCase tokens instead of CSS properties directly?**
+
+A single token like `primaryColor` maps to CSS in *many different places* — the `color` of an `h1`, the `background-color` of a button, the `border-color` of a divider. If you stored CSS properties directly you'd have to repeat and keep them in sync. The token is defined once; each generator method puts it in the right property for the right context.
 
 ```php
 $sheet = new StyleSheet([
-    'primaryColor'   => '#c0392b',
+    'primaryColor'   => '#e63946',
     'textColor'      => '#333333',
     'bgColor'        => '#f4f4f4',
     'containerBg'    => '#ffffff',
-    'borderColor'    => '#dddddd',
-    'fontFamily'     => "Arial, 'Helvetica Neue', Helvetica, sans-serif",
-    'baseFontSize'   => '14px',
-    'lineHeight'     => '150%',
+    'fontFamily'     => "Poppins, Arial, sans-serif",
+    'baseFontSize'   => '15px',
+    'lineHeight'     => '160%',
     'containerWidth' => 600,
     'marginWidth'    => 30,
-    'spacerHeight'   => '20px',
-    'buttonRadius'   => '4px',
-    'buttonHeight'   => 50,
-    'buttonWidth'    => 200,
-    'buttonFontSize' => '16px',
+]);
+```
+
+---
+
+### Vocabulary 2 — Style keys (semantic node keys)
+
+Style arrays throughout the library are always nested under a **semantic key** that identifies which node type or HTML element receives the styles. The value is a flat array of standard CSS properties (`background-color`, `font-size`, etc.).
+
+```
+'body'      → <body> element                (used by Body)
+'container' → <table> element               (used by Container)
+'column'    → <td> element                  (used by Column)
+'text'      → base for all text elements    (cascades to every Text node)
+'h1'/'h2'/… → tag-specific text overrides   (merged on top of 'text')
+'div'/'p'/'span'/… → same as above
+'img'       → <img> element                 (used by Image)
+'a'         → <a> element                   (used by Anchor)
+```
+
+**Why `container` and `column` instead of `table` and `td`?**
+
+Email HTML wraps a logical "container" in multiple elements (`<table><tbody><tr>`) and Outlook sometimes adds MSO conditional wrappers around it. Using the key `container` means you're styling the *concept* rather than a specific tag. It also avoids confusion with the CSS `table` and `td` display values. The library owns the mapping; you use the semantic vocabulary.
+
+```php
+// All CSS properties inside the keys are standard CSS, written exactly as in a stylesheet.
+new Container([
+    'container' => [
+        'background-color' => '#ffffff',    // standard CSS — goes on the <table>
+        'width'            => '600px',
+        'border-collapse'  => 'collapse',
+    ],
 ]);
 
+new Column([
+    'column' => [
+        'width'   => '270px',               // standard CSS — goes on the <td>
+        'padding' => '0 20px',
+    ],
+]);
+
+new Text('Hello', 'h1', [
+    'text' => ['font-family' => 'Arial'],   // base — applies to all tags in this node
+    'h1'   => ['color' => '#e63946'],       // tag-specific — merged on top of 'text'
+]);
+```
+
+---
+
+### Generator methods — theme → style arrays
+
+These methods read your tokens and produce a ready-to-use style array with the correct semantic keys and standard CSS properties. Pass the return value directly to the matching constructor.
+
+**`emailStyle()`** — pass to `new EmailDocument()`
+
+```php
 $email = new EmailDocument($sheet->emailStyle());
-$email->body->setCSS($sheet->responsiveCss());
 ```
 
-| Generator method | Returns style array for |
-|---|---|
-| `emailStyle()` | `EmailDocument` constructor |
-| `containerStyle()` | `Container` constructor |
-| `outerContainerStyle()` | Outer MSO-bounding Container |
-| `marginColumnStyle()` | Gutter `Column` |
-| `bodyColumnStyle()` | Content `Column` (1-col) |
-| `twoColStyle()` | Each column in 2-col layout |
-| `threeColStyle()` | Each column in 3-col layout |
-| `spacerStyle($height)` | Spacer `div` style |
-| `buttonContainerStyle()` | Table-based button container |
-
-### 2. Named-style registry
+Produces (for the theme above):
 
 ```php
+[
+    'body' => [
+        'background-color'         => '#f4f4f4',   // ← from bgColor token
+        'margin'                   => 0,
+        '-webkit-text-size-adjust' => '100%',
+    ],
+    'text' => [
+        'font-family' => 'Poppins, Arial, sans-serif',  // ← from fontFamily
+        'font-size'   => '15px',                        // ← from baseFontSize
+        'line-height' => '160%',                        // ← from lineHeight
+        'color'       => '#333333',                     // ← from textColor
+    ],
+    'h1'  => ['font-size' => '28px', 'color' => '#e63946', …],  // ← from primaryColor
+    'h2'  => ['font-size' => '22px', 'color' => '#e63946', …],
+    'a'   => ['color' => '#e63946', 'text-decoration' => 'none'],
+    // …
+]
+```
+
+This style array becomes the *root* of the cascade — every child node in the tree inherits from it.
+
+| Generator method | Pass to | What it produces |
+|---|---|---|
+| `emailStyle()` | `new EmailDocument(…)` | body bg, global font, heading + link colors |
+| `containerStyle()` | `new Container(…)` | container key with width, bg, table resets |
+| `outerContainerStyle()` | `new Container(…, mso: true)` | same + no bg (transparent outer wrapper) |
+| `marginColumnStyle()` | `new Column(…)` | column key with gutter width |
+| `bodyColumnStyle()` | `new Column(…)` | column key with inner content width |
+| `twoColStyle()` | `new Column(…)` | column key with half inner width |
+| `threeColStyle()` | `new Column(…)` | column key with one-third inner width |
+| `spacerStyle($height)` | `new Column(…)` | font-size/line-height/height triple for Outlook |
+| `buttonContainerStyle()` | `new Container(…)` | bg-color, border-radius, center alignment |
+
+All generators accept an optional `$overrides` array so you can tweak one property without redefining the whole block:
+
+```php
+// Override just the background on an otherwise standard container:
+$c = new Container($sheet->containerStyle([
+    'container' => ['background-color' => '#fffbe6'],
+]));
+```
+
+---
+
+### Named-style registry
+
+Store reusable style combinations under a name and apply them via `get()`. Keys inside the stored style follow the same semantic vocabulary (`container`, `column`, `h1`, `div`, etc.) and values are standard CSS properties.
+
+```php
+// ── Define once, usually at the top of your template ──────────────────────
+
 $sheet->define('hero', [
-    'container' => ['background-color' => '#003366'],
+    'container' => ['background-color' => '#003366'],   // standard CSS on the <table>
     'h1'        => ['color' => '#ffffff', 'font-size' => '32px'],
-    'div'       => ['color' => '#ccddff'],
+    'div'        => ['color' => '#aac4ff', 'line-height' => '170%'],
 ]);
 
-$section->setStyle($sheet->get('hero'));
+$sheet->define('highlight', [
+    'container' => [
+        'background-color' => '#fff8e1',
+        'border-left'      => '4px solid #e63946',
+    ],
+    'div' => ['color' => '#333333', 'padding' => '0 0 0 12px'],
+]);
 
-// Extend later
-$sheet->extend('hero', ['container' => ['border-bottom' => '3px solid #ff0']]);
+$sheet->define('footer', [
+    'container' => ['background-color' => '#f0f0f0'],
+    'div'       => ['color' => '#888888', 'font-size' => '12px', 'text-align' => 'center'],
+    'a'         => ['color' => '#888888'],
+]);
 
-// Retrieve with inline overrides
-$style = $sheet->get('hero', ['h1' => ['font-size' => '24px']]);
+// ── Apply to sections ──────────────────────────────────────────────────────
+
+$email->body->hero->setStyle($sheet->get('hero'));
+$email->body->note->setStyle($sheet->get('highlight'));
+$email->body->foot->setStyle($sheet->get('footer'));
+
+// Retrieve with per-call overrides (does not modify the stored definition):
+$email->body->alt_hero->setStyle($sheet->get('hero', [
+    'h1' => ['font-size' => '24px'],   // smaller h1, everything else from 'hero'
+]));
+
+// Extend a definition in-place (modifies the stored definition):
+$sheet->extend('hero', [
+    'container' => ['border-bottom' => '3px solid #e63946'],
+]);
 ```
 
-### responsiveCss()
+| Method | Description |
+|---|---|
+| `define(string $name, array $style)` | Store a named style; returns `$this` for chaining |
+| `get(string $name, array $overrides = [])` | Retrieve — optionally merged with one-off overrides |
+| `extend(string $name, array $extra)` | Merge additional keys into an existing definition |
+| `has(string $name)` | Check whether a name is registered |
 
-Generates the full `<style>` block for `Body::setCSS()`.
+---
 
-Includes:
-- Outlook.com / ExternalClass resets
-- Global table `border-collapse` and `mso-table-lspace` resets
-- iOS `-webkit-text-size-adjust` reset
-- Apple Mail auto-detected link styling (`a[x-apple-data-detectors]`)
-- Gmail blue-link override (`u + .body a`)
-- Samsung Mail link override
-- `@media` query: full-width containers, 2-col and 3-col stacking, fluid images
-- Visibility utilities: `hidden-sm`, `show-sm`
-- Dark mode stub (commented out — opt-in)
+### `responsiveCss(int $breakpoint = 620)`
+
+Returns a complete `<style>` string to inject via `$email->body->setCSS(…)`. It is the only place in the package that outputs a `<style>` block — everything else is inline CSS.
 
 ```php
-$email->body->setCSS($sheet->responsiveCss(breakpoint: 620));
+$email->body->setCSS($sheet->responsiveCss());           // breakpoint: 620px (default)
+$email->body->setCSS($sheet->responsiveCss(breakpoint: 480)); // tighter breakpoint
 ```
+
+What it includes:
+
+- **Client resets**: `body` margin/padding, Outlook.com `.ExternalClass`, global `table` collapse + `mso-table-lspace`
+- **Image resets**: `display:block`, `border:0`, bicubic interpolation
+- **Apple Mail**: kills auto-detected blue links (`a[x-apple-data-detectors]`)
+- **Gmail**: kills blue link rewrite (`u + .body a`)
+- **Samsung Mail**: kills link rewrite (`#MessageViewBody a`)
+- **`@media` responsive**: `devicewidth` tables → 100%, `section-body` → 100%, `col-2`/`col-3` → `display:block`, fluid images, base font bump
+- **Utilities**: `hidden-sm` (hide on mobile), `show-sm` (show only on mobile)
+- **Dark mode stub**: commented-out `@media (prefers-color-scheme: dark)` block — opt-in, ready to uncomment
 
 ---
 
