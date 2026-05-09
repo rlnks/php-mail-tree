@@ -409,6 +409,101 @@ $sheet->extend('hero', [
 
 ---
 
+### Shared styles file
+
+The named-style registry is designed to live in a dedicated file you `require` at the top of each template — the PHP equivalent of a CSS stylesheet. This keeps all brand-specific colours, backgrounds, and typography rules out of your template logic.
+
+**`my_styles.php`**
+
+```php
+<?php
+// All section styles in one place.
+// Semantic keys follow the library vocabulary: container, column, text, h1, div, img, a, …
+
+$sheet->define('logo', [
+    'img' => ['max-width' => '150px', 'margin' => 'auto', 'display' => 'block'],
+]);
+
+$sheet->define('hero', [
+    'container' => ['background-color' => '#003366'],
+    'h1'        => ['color' => '#ffffff', 'font-size' => '32px'],
+    'div'        => ['color' => '#aac4ff', 'line-height' => '170%'],
+]);
+
+$sheet->define('promo', [
+    'container' => ['background-color' => '#fff8e1'],
+    'h2'        => ['color' => '#e63946'],
+    'div'        => ['color' => '#333333'],
+]);
+
+$sheet->define('credits', [
+    'container' => ['background-color' => '#f0f0f0'],
+    'div'        => ['color' => '#888888', 'font-size' => '12px', 'text-align' => 'center'],
+    'a'          => ['color' => '#888888'],
+]);
+```
+
+**`email.php`**
+
+```php
+<?php
+$sheet = new StyleSheet(['primaryColor' => '#e63946', /* … */]);
+require 'my_styles.php';   // populates $sheet with all named styles
+
+$email = new EmailDocument($sheet->emailStyle());
+$email->body = new Body();
+$email->body->setCSS($sheet->responsiveCss());
+
+// ── Structure ──────────────────────────────────────────────────────────────
+$email->body->logo    = Section::make(sheet: $sheet);
+$email->body->hero    = Section::make(sheet: $sheet);
+$email->body->promo   = Section::make(sheet: $sheet);
+$email->body->credits = Section::make(sheet: $sheet);
+
+// ── Styles — one line per section ─────────────────────────────────────────
+$email->body->logo->setStyle($sheet->get('logo'));
+$email->body->hero->setStyle($sheet->get('hero'));
+$email->body->promo->setStyle($sheet->get('promo'));
+$email->body->credits->setStyle($sheet->get('credits'));
+
+// ── Content ────────────────────────────────────────────────────────────────
+$email->body->logo->body->img      = new Image($logoSrc, 'Acme');
+$email->body->hero->body->title    = new Text('Order confirmed!', 'h1');
+$email->body->hero->body->desc     = new Text('Thanks for your purchase.', 'div');
+$email->body->promo->body->title   = new Text('You may also like', 'h2');
+$email->body->credits->body->copy  = new Text('© 2025 Acme Corp · Unsubscribe', 'div');
+
+echo $email->build();
+```
+
+### `applyStyle()` — targeting specific children
+
+When a named style needs to address a **specific named child** of a section rather than the section itself, use `applyStyle()` instead of `setStyle()`. The optional `'children'` key maps child property names to their own style arrays — other children are unaffected.
+
+```php
+$sheet->define('sectionPromo', [
+    'container' => ['background-color' => '#003366'],   // applied to this node
+    'children'  => [
+        'body' => [                                      // applied to ->body only
+            'column' => ['background-color' => '#00264d'],
+        ],
+    ],
+]);
+
+$email->body->promo->applyStyle($sheet->get('sectionPromo'));
+```
+
+All keys except `'children'` are applied to the node itself via `setStyle()`. The `'children'` map recurses — if a child also has `HasChildren`, its entry can contain another `'children'` key.
+
+```php
+// Chaining:
+$email->body->hero
+    ->applyStyle($sheet->get('hero'))
+    ->applyStyle(['h2' => ['font-size' => '20px']]);   // one-off tweak
+```
+
+---
+
 ### `responsiveCss(int $breakpoint = 620)`
 
 Returns a complete `<style>` string to inject via `$email->body->setCSS(…)`. It is the only place in the package that outputs a `<style>` block — everything else is inline CSS.
@@ -610,6 +705,7 @@ The methods below marked **†** are available on all nodes that can have childr
 | `replaceWith(Renderable $node)` † | Swap out in-place; returns the replaced node |
 | `duplicate()` † | Clone + insert after self; returns the duplicate |
 | `getChildren(): array` † | Snapshot of direct children keyed by property name |
+| `applyStyle(array $style)` † | Apply semantic keys to self + optionally target named children via `'children'` key; returns `$this` |
 
 ### `Container`
 
@@ -626,6 +722,7 @@ Renders as `<table><tbody><tr>`. Children should be `Column` instances.
 | `moveUp / moveDown / moveToIndex` † | See `Body` above |
 | `insertBefore / insertAfter` † | See `Body` above |
 | `detach / replaceWith / duplicate / getChildren` † | See `Body` above |
+| `applyStyle(array $style)` † | See `Body` above |
 
 ### `Column`
 
@@ -641,6 +738,7 @@ Renders as `<td>`.
 | `moveUp / moveDown / moveToIndex` † | See `Body` above |
 | `insertBefore / insertAfter` † | See `Body` above |
 | `detach / replaceWith / duplicate / getChildren` † | See `Body` above |
+| `applyStyle(array $style)` † | See `Body` above |
 
 ### `Text`
 
@@ -655,6 +753,7 @@ Wraps content in any inline or block tag. With `$tag = null` acts as a transpare
 | `moveUp / moveDown / moveToIndex` † | See `Body` above |
 | `insertBefore / insertAfter` † | See `Body` above |
 | `detach / replaceWith / duplicate / getChildren` † | See `Body` above |
+| `applyStyle(array $style)` † | See `Body` above |
 
 ### `Image`
 
@@ -680,6 +779,7 @@ Emits `width`/`height` HTML attributes only when the CSS value is a plain intege
 | `moveUp / moveDown / moveToIndex` † | See `Body` above |
 | `insertBefore / insertAfter` † | See `Body` above |
 | `detach / replaceWith / duplicate / getChildren` † | See `Body` above |
+| `applyStyle(array $style)` † | See `Body` above |
 
 ---
 

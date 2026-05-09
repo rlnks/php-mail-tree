@@ -65,6 +65,55 @@ trait HasChildren
         return $this->children;
     }
 
+    /**
+     * Apply a style array to this node and, optionally, to specific named children.
+     *
+     * All keys except 'children' are treated as standard semantic style keys
+     * (container, column, text, h1, div, img, a, …) and are applied to this node
+     * via setStyle().
+     *
+     * The optional 'children' key is a map of child property names → style arrays.
+     * Each matching child receives its own setStyle() / applyStyle() call, so you
+     * can style a specific child without affecting siblings:
+     *
+     *   $sheet->define('sectionPromo', [
+     *       'container' => ['background-color' => '#003366'],   // → this container
+     *       'children'  => [
+     *           'body' => [                                      // → ->body only
+     *               'column' => ['background-color' => '#003366'],
+     *           ],
+     *       ],
+     *   ]);
+     *
+     *   $email->body->promo->applyStyle($sheet->get('sectionPromo'));
+     *
+     * Children that do not exist in the tree are silently skipped.
+     * Returns $this for chaining.
+     */
+    public function applyStyle(array $style): static
+    {
+        $childStyles = $style['children'] ?? [];
+        $selfStyle   = array_diff_key($style, ['children' => null]);
+
+        if ($selfStyle) {
+            $this->setStyle($selfStyle);
+        }
+
+        foreach ($childStyles as $childName => $childStyle) {
+            $child = $this->children[$childName] ?? null;
+            if ($child === null) {
+                continue;
+            }
+            if (method_exists($child, 'applyStyle')) {
+                $child->applyStyle($childStyle);
+            } elseif (method_exists($child, 'setStyle')) {
+                $child->setStyle($childStyle);
+            }
+        }
+
+        return $this;
+    }
+
     // ── Parent back-reference (wired automatically by __set) ─────────────────
 
     /** @internal Called by the parent's __set when this node is assigned as a child. */
