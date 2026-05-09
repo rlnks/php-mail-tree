@@ -4,11 +4,11 @@ namespace Rlnks\MailTree;
 
 class EmailDocument implements Renderable
 {
-    use HasChildren;
+    use HasChildren, HasStyle;
 
     private array $style;
     private string $subject = '';
-    private array $links = [];
+    private array $links    = [];
 
     public function __construct(array $style = [])
     {
@@ -30,6 +30,7 @@ class EmailDocument implements Renderable
         $mergedStyle = array_replace_recursive($style, $this->style);
 
         $i = $indent;
+
         $html  = '<!DOCTYPE html>' . "\n";
         $html .= '<html>' . "\n";
         $html .= str_repeat("\t", $i + 1) . '<head>' . "\n";
@@ -46,16 +47,6 @@ class EmailDocument implements Renderable
         $html .= "\n" . '</html>';
 
         return $html;
-    }
-
-    public function getStyle(): array
-    {
-        return $this->style;
-    }
-
-    public function setStyle(array $style): void
-    {
-        $this->style = array_replace_recursive($this->style, $style);
     }
 
     private function defaultStyle(): array

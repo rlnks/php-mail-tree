@@ -4,20 +4,12 @@ namespace Rlnks\MailTree;
 
 class Anchor implements Renderable
 {
-    use HasChildren;
+    use HasChildren, HasStyle;
 
-    private string $href;
-    private array $style;
-
-    /**
-     * @param string $href   Target URL
-     * @param array  $style  Nested style overrides, e.g. ['a' => ['color' => '#fff']]
-     */
-    public function __construct(string $href = '#', array $style = [])
-    {
-        $this->href  = $href;
-        $this->style = $style;
-    }
+    public function __construct(
+        private string $href  = '#',
+        private array $style  = [],
+    ) {}
 
     public function setLink(string $href): void
     {
@@ -29,20 +21,10 @@ class Anchor implements Renderable
         $mergedStyle = array_replace_recursive($style, $this->style);
         $aStyle      = $mergedStyle['a'] ?? [];
 
-        $outputStyle = '';
-        foreach ($aStyle as $prop => $value) {
-            $outputStyle .= $prop . ':' . $value . ';';
-        }
-
-        $html  = "\n" . str_repeat("\t", $indent) . '<a style="' . $outputStyle . '" href="' . $this->href . '">';
+        $html  = "\n" . str_repeat("\t", $indent) . '<a style="' . $this->cssString($aStyle) . '" href="' . $this->href . '">';
         $html .= $this->renderChildren($mergedStyle, $indent + 1);
         $html .= '</a>';
 
         return $html;
-    }
-
-    public function setStyle(array $style): void
-    {
-        $this->style = array_replace_recursive($this->style, $style);
     }
 }

@@ -3,13 +3,10 @@
 if (!function_exists('deepclone')) {
     /**
      * Deep-clone any object (or passthrough for non-objects).
-     * Used to duplicate pre-built email node trees before customizing them.
+     * Relies on __clone() defined in HasChildren to recursively clone child nodes.
      */
     function deepclone(mixed $obj): mixed
     {
-        if (!is_object($obj)) {
-            return $obj;
-        }
-        return unserialize(serialize($obj));
+        return is_object($obj) ? clone $obj : $obj;
     }
 }

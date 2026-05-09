@@ -21,6 +21,15 @@ trait HasChildren
         return isset($this->children[$name]);
     }
 
+    public function __clone(): void
+    {
+        foreach ($this->children as $key => $child) {
+            if (is_object($child)) {
+                $this->children[$key] = clone $child;
+            }
+        }
+    }
+
     protected function renderChildren(array $style, int $indent): string
     {
         $html = '';

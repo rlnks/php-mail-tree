@@ -4,15 +4,13 @@ namespace Rlnks\MailTree;
 
 class Body implements Renderable
 {
-    use HasChildren;
+    use HasChildren, HasStyle;
 
-    private array $style;
     private string $css = '';
 
-    public function __construct(array $style = [])
-    {
-        $this->style = $style;
-    }
+    public function __construct(
+        private array $style = [],
+    ) {}
 
     public function setCSS(string $css): void
     {
@@ -23,12 +21,7 @@ class Body implements Renderable
     {
         $mergedStyle = array_replace_recursive($style, $this->style);
 
-        $outputStyle = '';
-        foreach ($mergedStyle['body'] ?? [] as $prop => $value) {
-            $outputStyle .= $prop . ':' . $value . ';';
-        }
-
-        $html  = "\n" . str_repeat("\t", $indent) . '<body style="' . $outputStyle . '">';
+        $html  = "\n" . str_repeat("\t", $indent) . '<body style="' . $this->cssString($mergedStyle['body'] ?? []) . '">';
 
         if ($this->css !== '') {
             $html .= "\n" . str_repeat("\t", $indent + 1) . '<style type="text/css">' . $this->css . '</style>';
@@ -38,15 +31,5 @@ class Body implements Renderable
         $html .= "\n" . str_repeat("\t", $indent) . '</body>';
 
         return $html;
-    }
-
-    public function getStyle(): array
-    {
-        return $this->style;
-    }
-
-    public function setStyle(array $style): void
-    {
-        $this->style = array_replace_recursive($this->style, $style);
     }
 }
