@@ -1,0 +1,31 @@
+{
+    "name": "rlnks/php-mail-tree",
+    "description": "A PHP HTML email builder using an intuitive object-tree nesting approach. Structure your email exactly like you think it — each node is a named property on its parent.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["email", "html", "mail", "builder", "template"],
+    "homepage": "https://github.com/rlnks/php-mail-tree",
+    "require": {
+        "php": ">=8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Rlnks\\MailTree\\": "src/"
+        },
+        "files": [
+            "src/helpers.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Rlnks\\MailTree\\Tests\\": "tests/"
+        }
+    },
+    "authors": [
+        {
+            "name": "RLNKS",
+            "homepage": "https://rlnks.com"
+        }
+    ],
+    "minimum-stability": "stable"
+}
