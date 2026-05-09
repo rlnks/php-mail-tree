@@ -4,6 +4,25 @@ namespace Rlnks\MailTree;
 
 trait HasStyle
 {
+    private bool $hidden = false;
+
+    public function hide(): static
+    {
+        $this->hidden = true;
+        return $this;
+    }
+
+    public function show(): static
+    {
+        $this->hidden = false;
+        return $this;
+    }
+
+    public function isHidden(): bool
+    {
+        return $this->hidden;
+    }
+
     public function getStyle(): array
     {
         return $this->style;

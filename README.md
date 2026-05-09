@@ -68,6 +68,56 @@ echo $email->build();
 
 ---
 
+## Node management
+
+### Visibility — `hide()` / `show()`
+
+Every node supports `hide()` and `show()`. A hidden node is completely skipped during rendering — it stays in the tree, so you can reveal it again later or toggle it conditionally.
+
+```php
+$email->body->promo = Section::make(sheet: $sheet);
+$email->body->promo->hide();     // not rendered until shown again
+
+// Conditionally suppress a section:
+if (!$user->hasPromoAccess()) {
+    $email->body->promo->hide();
+}
+
+echo $email->build();
+```
+
+`hide()` and `show()` return `$this`, so they chain:
+
+```php
+$email->body->notice = (new Text('Beta feature', 'div'))->hide();
+```
+
+### Reordering — `moveUp()` / `moveDown()` / `moveToIndex()`
+
+Nodes assigned via `->` track their parent automatically. Call move methods on a child and the parent's child list is updated immediately.
+
+```php
+// Skeleton
+$email->body->intro    = Section::make(sheet: $sheet);
+$email->body->features = TwoColumn::make(sheet: $sheet);
+$email->body->cta      = Section::make(sheet: $sheet);
+
+// Promote features above intro:
+$email->body->features->moveUp();
+
+// Or use absolute positioning (0 = first):
+$email->body->cta->moveToIndex(0);
+
+// Multi-step jump:
+$email->body->cta->moveDown(2);
+```
+
+All three methods return `$this`. `moveUp`/`moveDown` accept an optional `$steps` argument (default `1`). Positions clamp at the boundaries — no wrap-around.
+
+> **Note:** `moveUp()`/`moveDown()`/`moveToIndex()` are available on nodes that use `HasChildren` (`Container`, `Column`, `Body`, `Text`, `Anchor`). `Image` supports `hide()`/`show()` only.
+
+---
+
 ## Quick start with StyleSheet + Presets
 
 ```php
@@ -367,6 +417,10 @@ $frame->before_footer = deepclone($spacer);
 | `setCSS(string $css)` | Inject `<style>` block — use `$sheet->responsiveCss()` |
 | `setStyle(array $style)` | Merge additional styles |
 | `getStyle(): array` | Full resolved style array |
+| `hide() / show()` | Toggle visibility in the rendered output |
+| `moveUp(int $steps = 1)` | Move earlier in parent's child list |
+| `moveDown(int $steps = 1)` | Move later in parent's child list |
+| `moveToIndex(int $index)` | Jump to absolute position (0 = first) |
 
 ### `Container`
 
@@ -379,6 +433,10 @@ Renders as `<table><tbody><tr>`. Children should be `Column` instances.
 | `setID(string $id)` | id on `<table>` |
 | `setStyle(array $style)` | Merge style overrides |
 | `getStyle(): array` | Full resolved style array |
+| `hide() / show()` | Toggle visibility in the rendered output |
+| `moveUp(int $steps = 1)` | Move earlier in parent's child list |
+| `moveDown(int $steps = 1)` | Move later in parent's child list |
+| `moveToIndex(int $index)` | Jump to absolute position (0 = first) |
 
 ### `Column`
 
@@ -390,6 +448,10 @@ Renders as `<td>`.
 | `setClass(string $class)` | CSS class on `<td>` (used for responsive: `col-2`, `col-3`, `section-body`) |
 | `setStyle(array $style)` | Merge style overrides |
 | `getStyle(): array` | Full resolved style array |
+| `hide() / show()` | Toggle visibility in the rendered output |
+| `moveUp(int $steps = 1)` | Move earlier in parent's child list |
+| `moveDown(int $steps = 1)` | Move later in parent's child list |
+| `moveToIndex(int $index)` | Jump to absolute position (0 = first) |
 
 ### `Text`
 
@@ -400,6 +462,10 @@ Wraps content in any inline or block tag. With `$tag = null` acts as a transpare
 | `__construct(string $text, ?string $tag = null, array $style = [])` | `$tag`: `h1`, `h2`, `h3`, `div`, `p`, `span`, etc. |
 | `setStyle(array $style)` | Merge style overrides |
 | `getStyle(): array` | Full resolved style array |
+| `hide() / show()` | Toggle visibility in the rendered output |
+| `moveUp(int $steps = 1)` | Move earlier in parent's child list |
+| `moveDown(int $steps = 1)` | Move later in parent's child list |
+| `moveToIndex(int $index)` | Jump to absolute position (0 = first) |
 
 ### `Image`
 
@@ -409,6 +475,7 @@ Wraps content in any inline or block tag. With `$tag = null` acts as a transpare
 | `setSrc(string $src, ?string $alt = null)` | Update src (and optionally alt) after construction |
 | `setStyle(array $style)` | Merge style overrides |
 | `getStyle(): array` | Full resolved style array |
+| `hide() / show()` | Toggle visibility in the rendered output |
 
 Emits `width`/`height` HTML attributes only when the CSS value is a plain integer (not `%`, `auto`).
 
@@ -420,6 +487,10 @@ Emits `width`/`height` HTML attributes only when the CSS value is a plain intege
 | `setLink(string $href)` | Update href after construction |
 | `setStyle(array $style)` | Merge style overrides |
 | `getStyle(): array` | Full resolved style array |
+| `hide() / show()` | Toggle visibility in the rendered output |
+| `moveUp(int $steps = 1)` | Move earlier in parent's child list |
+| `moveDown(int $steps = 1)` | Move later in parent's child list |
+| `moveToIndex(int $index)` | Jump to absolute position (0 = first) |
 
 ---
 
