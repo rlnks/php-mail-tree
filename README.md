@@ -70,51 +70,87 @@ echo $email->build();
 
 ## Node management
 
+Every node supports a full set of tree-management methods. All methods return `$this` (or the affected node) so they can be chained.
+
 ### Visibility — `hide()` / `show()`
 
-Every node supports `hide()` and `show()`. A hidden node is completely skipped during rendering — it stays in the tree, so you can reveal it again later or toggle it conditionally.
+A hidden node is completely skipped during rendering. It stays in the tree, so it can be revealed again or toggled conditionally.
 
 ```php
 $email->body->promo = Section::make(sheet: $sheet);
-$email->body->promo->hide();     // not rendered until shown again
 
-// Conditionally suppress a section:
 if (!$user->hasPromoAccess()) {
     $email->body->promo->hide();
 }
 
-echo $email->build();
-```
-
-`hide()` and `show()` return `$this`, so they chain:
-
-```php
+// Chainable at assignment time:
 $email->body->notice = (new Text('Beta feature', 'div'))->hide();
 ```
 
 ### Reordering — `moveUp()` / `moveDown()` / `moveToIndex()`
 
-Nodes assigned via `->` track their parent automatically. Call move methods on a child and the parent's child list is updated immediately.
+Nodes track their parent automatically when assigned via `->`. Move methods operate on the parent's child list immediately.
 
 ```php
-// Skeleton
 $email->body->intro    = Section::make(sheet: $sheet);
 $email->body->features = TwoColumn::make(sheet: $sheet);
 $email->body->cta      = Section::make(sheet: $sheet);
 
-// Promote features above intro:
-$email->body->features->moveUp();
-
-// Or use absolute positioning (0 = first):
-$email->body->cta->moveToIndex(0);
-
-// Multi-step jump:
-$email->body->cta->moveDown(2);
+$email->body->features->moveUp();        // swap features above intro
+$email->body->cta->moveToIndex(0);       // jump to first position
+$email->body->cta->moveDown(2);          // multi-step shift
 ```
 
-All three methods return `$this`. `moveUp`/`moveDown` accept an optional `$steps` argument (default `1`). Positions clamp at the boundaries — no wrap-around.
+`moveUp`/`moveDown` accept an optional `$steps` argument (default `1`). Positions clamp at boundaries — no wrap-around.
 
-> **Note:** `moveUp()`/`moveDown()`/`moveToIndex()` are available on nodes that use `HasChildren` (`Container`, `Column`, `Body`, `Text`, `Anchor`). `Image` supports `hide()`/`show()` only.
+### Relative positioning — `insertBefore()` / `insertAfter()`
+
+Position a node relative to a named sibling instead of an absolute index.
+
+```php
+// Skeleton built in order A → B → C
+$email->body->intro    = Section::make(sheet: $sheet);
+$email->body->features = TwoColumn::make(sheet: $sheet);
+$email->body->footer   = Section::make(sheet: $sheet);
+
+// Inject a new divider between features and footer:
+$email->body->divider = Divider::make(sheet: $sheet);
+$email->body->divider->insertBefore('footer');
+
+// Or move features after the footer:
+$email->body->features->insertAfter('footer');
+```
+
+The sibling is identified by the **property name** it was assigned under.
+
+### Lifecycle — `detach()` / `replaceWith()` / `duplicate()`
+
+```php
+// Remove a section from the tree entirely (returns the detached node):
+$removed = $email->body->promo->detach();
+
+// Swap a node with a new one, keeping the same key and position:
+$email->body->intro->body->title->replaceWith(new Text('New Title', 'h1'));
+
+// Deep-clone a node and insert it immediately after itself:
+$copy = $email->body->card->duplicate();
+$copy->body->title->replaceWith(new Text('Card 2', 'h2'));
+// Duplicate key is auto-generated: "card_2", "card_3", …
+```
+
+### Inspection — `getChildren()`
+
+Returns a snapshot of all direct children, keyed by their property name.
+
+```php
+foreach ($email->body->getChildren() as $key => $node) {
+    if (!$node->isHidden()) {
+        echo "$key is visible\n";
+    }
+}
+```
+
+> **Note:** `Image` supports `hide()`/`show()` but not the tree-manipulation methods (`move*`, `insertBefore/After`, `detach`, `replaceWith`, `duplicate`, `getChildren`), since it cannot have children.
 
 ---
 
@@ -409,6 +445,8 @@ $frame->before_footer = deepclone($spacer);
 | `getStyle(): array` | Full resolved style array |
 | `build(): string` | Render the complete HTML document |
 
+The methods below marked **†** are available on all nodes that can have children (`Body`, `Container`, `Column`, `Text`, `Anchor`). `Image` only supports `hide()`/`show()`.
+
 ### `Body`
 
 | Method | Description |
@@ -418,9 +456,15 @@ $frame->before_footer = deepclone($spacer);
 | `setStyle(array $style)` | Merge additional styles |
 | `getStyle(): array` | Full resolved style array |
 | `hide() / show()` | Toggle visibility in the rendered output |
-| `moveUp(int $steps = 1)` | Move earlier in parent's child list |
-| `moveDown(int $steps = 1)` | Move later in parent's child list |
-| `moveToIndex(int $index)` | Jump to absolute position (0 = first) |
+| `moveUp(int $steps = 1)` † | Move earlier in parent's child list |
+| `moveDown(int $steps = 1)` † | Move later in parent's child list |
+| `moveToIndex(int $index)` † | Jump to absolute position (0 = first) |
+| `insertBefore(string $key)` † | Reposition just before the named sibling |
+| `insertAfter(string $key)` † | Reposition just after the named sibling |
+| `detach()` † | Remove from parent; returns self for re-attachment |
+| `replaceWith(Renderable $node)` † | Swap out in-place; returns the replaced node |
+| `duplicate()` † | Clone + insert after self; returns the duplicate |
+| `getChildren(): array` † | Snapshot of direct children keyed by property name |
 
 ### `Container`
 
@@ -434,9 +478,9 @@ Renders as `<table><tbody><tr>`. Children should be `Column` instances.
 | `setStyle(array $style)` | Merge style overrides |
 | `getStyle(): array` | Full resolved style array |
 | `hide() / show()` | Toggle visibility in the rendered output |
-| `moveUp(int $steps = 1)` | Move earlier in parent's child list |
-| `moveDown(int $steps = 1)` | Move later in parent's child list |
-| `moveToIndex(int $index)` | Jump to absolute position (0 = first) |
+| `moveUp / moveDown / moveToIndex` † | See `Body` above |
+| `insertBefore / insertAfter` † | See `Body` above |
+| `detach / replaceWith / duplicate / getChildren` † | See `Body` above |
 
 ### `Column`
 
@@ -449,9 +493,9 @@ Renders as `<td>`.
 | `setStyle(array $style)` | Merge style overrides |
 | `getStyle(): array` | Full resolved style array |
 | `hide() / show()` | Toggle visibility in the rendered output |
-| `moveUp(int $steps = 1)` | Move earlier in parent's child list |
-| `moveDown(int $steps = 1)` | Move later in parent's child list |
-| `moveToIndex(int $index)` | Jump to absolute position (0 = first) |
+| `moveUp / moveDown / moveToIndex` † | See `Body` above |
+| `insertBefore / insertAfter` † | See `Body` above |
+| `detach / replaceWith / duplicate / getChildren` † | See `Body` above |
 
 ### `Text`
 
@@ -463,9 +507,9 @@ Wraps content in any inline or block tag. With `$tag = null` acts as a transpare
 | `setStyle(array $style)` | Merge style overrides |
 | `getStyle(): array` | Full resolved style array |
 | `hide() / show()` | Toggle visibility in the rendered output |
-| `moveUp(int $steps = 1)` | Move earlier in parent's child list |
-| `moveDown(int $steps = 1)` | Move later in parent's child list |
-| `moveToIndex(int $index)` | Jump to absolute position (0 = first) |
+| `moveUp / moveDown / moveToIndex` † | See `Body` above |
+| `insertBefore / insertAfter` † | See `Body` above |
+| `detach / replaceWith / duplicate / getChildren` † | See `Body` above |
 
 ### `Image`
 
@@ -488,9 +532,9 @@ Emits `width`/`height` HTML attributes only when the CSS value is a plain intege
 | `setStyle(array $style)` | Merge style overrides |
 | `getStyle(): array` | Full resolved style array |
 | `hide() / show()` | Toggle visibility in the rendered output |
-| `moveUp(int $steps = 1)` | Move earlier in parent's child list |
-| `moveDown(int $steps = 1)` | Move later in parent's child list |
-| `moveToIndex(int $index)` | Jump to absolute position (0 = first) |
+| `moveUp / moveDown / moveToIndex` † | See `Body` above |
+| `insertBefore / insertAfter` † | See `Body` above |
+| `detach / replaceWith / duplicate / getChildren` † | See `Body` above |
 
 ---
 

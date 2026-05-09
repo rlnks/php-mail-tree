@@ -57,6 +57,14 @@ trait HasChildren
         return $html;
     }
 
+    // ── Inspection ────────────────────────────────────────────────────────────
+
+    /** Return a snapshot of all direct children, keyed by their property name. */
+    public function getChildren(): array
+    {
+        return $this->children;
+    }
+
     // ── Parent back-reference (wired automatically by __set) ─────────────────
 
     /** @internal Called by the parent's __set when this node is assigned as a child. */
@@ -66,7 +74,67 @@ trait HasChildren
         $this->parentKey = $key;
     }
 
-    // ── Node movement ─────────────────────────────────────────────────────────
+    // ── Node lifecycle ────────────────────────────────────────────────────────
+
+    /**
+     * Remove this node from its parent's child list entirely.
+     * The detached node is returned so it can be re-attached elsewhere.
+     */
+    public function detach(): static
+    {
+        if ($this->parentRef !== null && $this->parentKey !== null) {
+            $this->parentRef->_removeChild($this->parentKey);
+            $this->parentRef = null;
+            $this->parentKey = null;
+        }
+        return $this;
+    }
+
+    /**
+     * Swap this node out of its parent with $newNode, preserving key and position.
+     * Returns $this (the now-detached, original node).
+     */
+    public function replaceWith(Renderable $newNode): static
+    {
+        if ($this->parentRef !== null && $this->parentKey !== null) {
+            $key    = $this->parentKey;
+            $parent = $this->parentRef;
+
+            if (method_exists($newNode, '_setParentRef')) {
+                $newNode->_setParentRef($parent, $key);
+            }
+            $parent->_replaceChild($key, $newNode);
+
+            $this->parentRef = null;
+            $this->parentKey = null;
+        }
+        return $this;
+    }
+
+    /**
+     * Deep-clone this node and insert the copy immediately after self in the parent.
+     * The duplicate's key is auto-generated as "{key}_2", "{key}_3", etc.
+     * Returns the new duplicate.
+     */
+    public function duplicate(): static
+    {
+        $dupe = clone $this;   // __clone() deep-clones subtree; parent ref is cleared
+
+        if ($this->parentRef !== null && $this->parentKey !== null) {
+            $idx     = $this->parentRef->_childIndex($this->parentKey);
+            $dupeKey = $this->parentRef->_uniqueChildKey($this->parentKey);
+
+            $this->parentRef->_insertChildAt($dupeKey, $dupe, $idx + 1);
+
+            if (method_exists($dupe, '_setParentRef')) {
+                $dupe->_setParentRef($this->parentRef, $dupeKey);
+            }
+        }
+
+        return $dupe;
+    }
+
+    // ── Movement ──────────────────────────────────────────────────────────────
 
     /** Move this node earlier (toward the top) in its parent's child list. */
     public function moveUp(int $steps = 1): static
@@ -91,18 +159,58 @@ trait HasChildren
         return $this;
     }
 
+    /**
+     * Move this node to just before a named sibling.
+     * The sibling is identified by the property name it was assigned under.
+     */
+    public function insertBefore(string $siblingKey): static
+    {
+        if ($this->parentRef === null || $this->parentKey === null
+            || $this->parentKey === $siblingKey) {
+            return $this;
+        }
+
+        $nodeIdx = $this->parentRef->_childIndex($this->parentKey);
+        $sibIdx  = $this->parentRef->_childIndex($siblingKey);
+
+        // After removing this node, the sibling shifts left by 1 if it came after us
+        $targetIdx = $sibIdx > $nodeIdx ? $sibIdx - 1 : $sibIdx;
+        $this->parentRef->_moveChildToIndex($this->parentKey, $targetIdx);
+
+        return $this;
+    }
+
+    /**
+     * Move this node to just after a named sibling.
+     * The sibling is identified by the property name it was assigned under.
+     */
+    public function insertAfter(string $siblingKey): static
+    {
+        if ($this->parentRef === null || $this->parentKey === null
+            || $this->parentKey === $siblingKey) {
+            return $this;
+        }
+
+        $nodeIdx = $this->parentRef->_childIndex($this->parentKey);
+        $sibIdx  = $this->parentRef->_childIndex($siblingKey);
+
+        // After removing this node, the sibling is at (sibIdx - 1) if it came after us
+        $adjustedSib = $nodeIdx < $sibIdx ? $sibIdx - 1 : $sibIdx;
+        $this->parentRef->_moveChildToIndex($this->parentKey, $adjustedSib + 1);
+
+        return $this;
+    }
+
     private function _shiftInParent(int $delta): void
     {
-        if ($this->parentRef === null || $this->parentKey === null) {
-            return;
-        }
+        if ($this->parentRef === null || $this->parentKey === null) return;
         $current = $this->parentRef->_childIndex($this->parentKey);
         $this->parentRef->_moveChildToIndex($this->parentKey, $current + $delta);
     }
 
     // ── Internal helpers — public so sibling instances can call them ──────────
 
-    /** @internal Return the zero-based position of $key in this node's child list. */
+    /** @internal Zero-based position of $key in this node's child list. */
     public function _childIndex(string $key): int
     {
         $keys = array_keys($this->children);
@@ -110,12 +218,10 @@ trait HasChildren
         return $pos !== false ? (int) $pos : 0;
     }
 
-    /** @internal Reposition a named child to the given absolute index (clamped). */
+    /** @internal Reposition a named child to an absolute index (clamped). */
     public function _moveChildToIndex(string $key, int $index): void
     {
-        if (!array_key_exists($key, $this->children)) {
-            return;
-        }
+        if (!array_key_exists($key, $this->children)) return;
 
         $value  = $this->children[$key];
         unset($this->children[$key]);
@@ -125,5 +231,39 @@ trait HasChildren
         $after  = array_slice($this->children, $index, null, true);
 
         $this->children = $before + [$key => $value] + $after;
+    }
+
+    /** @internal Remove a named child without touching parent refs. */
+    public function _removeChild(string $key): void
+    {
+        unset($this->children[$key]);
+    }
+
+    /** @internal Replace a named child in-place (same key, same position). */
+    public function _replaceChild(string $key, object $node): void
+    {
+        if (array_key_exists($key, $this->children)) {
+            $this->children[$key] = $node;
+        }
+    }
+
+    /** @internal Insert $node at $index under $key (does not go through __set). */
+    public function _insertChildAt(string $key, object $node, int $index): void
+    {
+        $index  = max(0, min(count($this->children), $index));
+        $before = array_slice($this->children, 0, $index, true);
+        $after  = array_slice($this->children, $index, null, true);
+        $this->children = $before + [$key => $node] + $after;
+    }
+
+    /** @internal Return a key derived from $base that doesn't collide with existing children. */
+    public function _uniqueChildKey(string $base): string
+    {
+        if (!array_key_exists($base, $this->children)) return $base;
+        $i = 2;
+        while (array_key_exists("{$base}_{$i}", $this->children)) {
+            $i++;
+        }
+        return "{$base}_{$i}";
     }
 }
