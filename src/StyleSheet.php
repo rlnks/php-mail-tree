@@ -37,6 +37,12 @@ class StyleSheet
         'buttonHeight'   => 50,
         'buttonWidth'    => 200,
         'buttonFontSize' => '16px',
+        // Dark mode tokens (used by darkModeCss() / responsiveCss(darkMode: true))
+        'darkBgColor'       => '#1a1a1a',
+        'darkContainerBg'   => '#2d2d2d',
+        'darkTextColor'     => '#dddddd',
+        'darkPrimaryColor'  => '',          // defaults to primaryColor if empty
+        'darkBorderColor'   => '#444444',
     ];
 
     public function __construct(array $theme = [])
@@ -187,6 +193,46 @@ class StyleSheet
         ], $overrides);
     }
 
+    /**
+     * Style for an N-column layout Column.
+     *
+     * $widths is an optional array of percentage shares (must match column count).
+     * If omitted, columns are divided equally.
+     *
+     * Example — 4 equal columns:
+     *   $sheet->nColStyle(4)
+     *
+     * Example — asymmetric 40/60 two-column:
+     *   $sheet->nColStyle(2, [40, 60])   // returns style for first column
+     *   Use $index to get subsequent columns.
+     */
+    public function nColStyle(int $columns, array $widths = [], int $index = 0, array $overrides = []): array
+    {
+        $inner = $this->bodyWidth();
+        if ($widths) {
+            $sum  = array_sum($widths);
+            $used = 0;
+            $pxWidths = [];
+            foreach ($widths as $i => $pct) {
+                if ($i === count($widths) - 1) {
+                    $pxWidths[] = $inner - $used;
+                } else {
+                    $px        = (int) round($inner * $pct / $sum);
+                    $pxWidths[] = $px;
+                    $used      += $px;
+                }
+            }
+            $w = $pxWidths[$index] ?? (int) floor($inner / $columns);
+        } else {
+            $base = (int) floor($inner / $columns);
+            $rem  = $inner - $base * $columns;
+            $w    = $base + ($index === 0 ? $rem : 0);
+        }
+        return array_replace_recursive([
+            'column' => ['width' => "{$w}px", 'max-width' => "{$w}px"],
+        ], $overrides);
+    }
+
     /** Style for a Spacer Container. */
     public function spacerStyle(string $height = '', array $overrides = []): array
     {
@@ -249,13 +295,18 @@ class StyleSheet
     /**
      * Returns the full CSS string to inject via Body::setCSS().
      *
-     * Includes:
-     *   - Client resets (Outlook, Apple, Gmail, Samsung Mail)
-     *   - Responsive media query (stack columns, full-width containers)
-     *   - Utility classes (hidden-sm, show-sm)
-     *   - Dark mode stub (commented out — opt-in)
+     * Pass darkMode: true to activate the prefers-color-scheme block using the
+     * dark-mode tokens (darkBgColor, darkContainerBg, darkTextColor, etc.) set
+     * in the theme. You can override each token when constructing the StyleSheet:
+     *
+     *   $sheet = new StyleSheet([
+     *       'primaryColor'  => '#003366',
+     *       'darkBgColor'   => '#0d1b2a',
+     *       'darkTextColor' => '#e0e6ef',
+     *   ]);
+     *   $email->body->setCSS($sheet->responsiveCss(darkMode: true));
      */
-    public function responsiveCss(int $breakpoint = 620): string
+    public function responsiveCss(int $breakpoint = 620, bool $darkMode = false): string
     {
         $bp = $breakpoint;
         $cw = $this->containerWidth();
@@ -292,14 +343,8 @@ class StyleSheet
             '  table[class~="devicewidth"] { width: 100% !important; max-width: 100% !important; }',
             '  td[class~="section-body"]   { width: 100% !important; max-width: 100% !important; }',
             '',
-            "  /* 2-column → stack */",
-            '  td[class~="col-2"] {',
-            '    display: block !important;',
-            '    width: 100% !important; max-width: 100% !important;',
-            '    box-sizing: border-box !important;',
-            '  }',
-            "  /* 3-column → stack */",
-            '  td[class~="col-3"] {',
+            "  /* N-column → stack (col-2 through col-5) */",
+            '  td[class~="col-2"], td[class~="col-3"], td[class~="col-4"], td[class~="col-5"] {',
             '    display: block !important;',
             '    width: 100% !important; max-width: 100% !important;',
             '    box-sizing: border-box !important;',
@@ -322,14 +367,34 @@ class StyleSheet
             '  }',
             '}',
             '',
-            '/* ── Dark mode (opt-in — uncomment to use) ──────────── */',
-            '/*',
+        ]) . ($darkMode ? "\n" . $this->darkModeCss() : '');
+    }
+
+    /**
+     * CSS block for dark mode support (prefers-color-scheme + Outlook.com).
+     * Called automatically by responsiveCss(darkMode: true).
+     * Can also be called standalone and appended to a custom <style> block.
+     */
+    public function darkModeCss(): string
+    {
+        $darkBg        = $this->theme['darkBgColor'];
+        $darkContainer = $this->theme['darkContainerBg'];
+        $darkText      = $this->theme['darkTextColor'];
+        $darkPrimary   = $this->theme['darkPrimaryColor'] ?: $this->theme['primaryColor'];
+        $darkBorder    = $this->theme['darkBorderColor'];
+
+        return implode("\n", [
+            '/* ── Dark mode ──────────────────────────────────────── */',
             '@media (prefers-color-scheme: dark) {',
-            "  body { background-color: #1a1a1a !important; }",
-            "  table[class~=\"devicewidth\"] { background-color: #2d2d2d !important; }",
-            "  td[class~=\"section-body\"]   { color: #dddddd !important; }",
+            "  body, #MessageViewBody { background-color: {$darkBg} !important; }",
+            "  table[class~=\"devicewidth\"] { background-color: {$darkContainer} !important; }",
+            "  td[class~=\"section-body\"]   { color: {$darkText} !important; }",
+            "  h1, h2, h3 { color: {$darkPrimary} !important; }",
+            "  a { color: {$darkPrimary} !important; }",
             '}',
-            '*/',
+            '/* Outlook.com dark mode overrides */',
+            "[data-ogsb] body { background-color: {$darkBg} !important; }",
+            "[data-ogsc] td[class~=\"section-body\"] { color: {$darkText} !important; }",
         ]);
     }
 
