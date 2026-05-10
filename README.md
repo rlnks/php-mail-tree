@@ -204,6 +204,295 @@ echo $email->build();
 
 ---
 
+## Complete example
+
+A production-ready multi-file structure that demonstrates every major pattern at once: separated styles and translations, skeleton-first construction, images and links defined as named variables, a single `build()` call, and multiple output variants from that one render.
+
+```
+my-email/
+├── email.php           ← main template (entry point)
+├── styles.php          ← $sheet->define() — all named section styles
+└── translations.php    ← return [...] — all translatable strings
+```
+
+---
+
+### `styles.php` — named section styles
+
+```php
+<?php
+// Runs in the same scope as email.php; $sheet is already created there.
+
+$sheet->define('header', [
+    'container' => ['background-color' => '#ffffff'],
+    'img'       => ['max-width' => '160px', 'margin' => 'auto', 'display' => 'block'],
+]);
+
+$sheet->define('hero', [
+    'container' => ['background-color' => '#003366'],
+    'h1'        => ['color' => '#ffffff', 'font-size' => '32px', 'font-weight' => 'bold'],
+    'div'        => ['color' => '#aac4ff', 'line-height' => '170%'],
+]);
+
+$sheet->define('intro', [
+    'container' => ['background-color' => '#ffffff'],
+    'h2'        => ['color' => '#003366'],
+    'div'        => ['color' => '#444444', 'line-height' => '160%'],
+]);
+
+$sheet->define('feature', [
+    'container' => ['background-color' => '#f9f9f9'],
+    'h3'        => ['color' => '#003366', 'font-size' => '18px'],
+    'div'        => ['color' => '#555555'],
+]);
+
+$sheet->define('footer', [
+    'container' => ['background-color' => '#eeeeee'],
+    'div'        => ['color' => '#888888', 'font-size' => '12px', 'text-align' => 'center'],
+    'a'          => ['color' => '#888888', 'text-decoration' => 'underline'],
+]);
+```
+
+---
+
+### `translations.php` — translatable strings
+
+```php
+<?php
+// Returns an associative array: key → [locale => value, …]
+// Omit a locale to keep {{key}} intact for that language.
+// 'php' key: override the generated PHP snippet for dynamic server-side values.
+
+return [
+
+    // ── Email meta ────────────────────────────────────────────────────────────
+    'subject' => [
+        'fr'  => 'Votre commande est confirmée!',
+        'en'  => 'Your order is confirmed!',
+        'php' => "<?php echo \$email->subject(); ?>",
+    ],
+
+    // ── Hero ──────────────────────────────────────────────────────────────────
+    'hero_title' => [
+        'fr'  => 'Commande confirmée!',
+        'en'  => 'Order confirmed!',
+    ],
+    'hero_desc' => [
+        'fr'  => 'Merci, {{client_name}}. Votre commande #{{order_id}} est en préparation.',
+        'en'  => 'Thank you, {{client_name}}. Your order #{{order_id}} is being prepared.',
+    ],
+
+    // ── Intro ─────────────────────────────────────────────────────────────────
+    'intro_title' => [
+        'fr'  => 'Récapitulatif de votre commande',
+        'en'  => 'Your order summary',
+    ],
+    'intro_desc' => [
+        'fr'  => 'Vous trouverez ci-dessous le détail de votre commande. Total: <strong>{{order_total}}</strong>.',
+        'en'  => 'Below you will find the details of your order. Total: <strong>{{order_total}}</strong>.',
+    ],
+    'intro_cta' => [
+        'fr'  => 'Voir ma commande',
+        'en'  => 'View my order',
+    ],
+
+    // ── Feature ───────────────────────────────────────────────────────────────
+    'feature_title' => [
+        'fr'  => 'Votre espace client',
+        'en'  => 'Your customer portal',
+    ],
+    'feature_desc' => [
+        'fr'  => 'Suivez l\'avancement de votre commande, téléchargez vos factures et gérez vos préférences en tout temps.',
+        'en'  => 'Track your order, download invoices and manage your preferences at any time.',
+    ],
+    'feature_cta' => [
+        'fr'  => 'Accéder à mon espace',
+        'en'  => 'Go to my portal',
+    ],
+
+    // ── Footer ────────────────────────────────────────────────────────────────
+    'legal' => [
+        'fr'  => 'Vous recevez ce courriel suite à votre achat. Les offres sont sujettes à changement sans préavis.',
+        'en'  => 'You received this email following your purchase. Offers are subject to change without notice.',
+        'php' => "<?php echo \$config->legalText(\$lang); ?>",
+    ],
+    'unsub_text' => [
+        'fr'  => 'Me désinscrire',
+        'en'  => 'Unsubscribe',
+    ],
+    'powered_by' => [
+        'fr'  => 'Propulsé par RLNKS',
+        'en'  => 'Powered by RLNKS',
+    ],
+
+];
+```
+
+---
+
+### `email.php` — the template
+
+```php
+<?php
+use Rlnks\MailTree\Anchor;
+use Rlnks\MailTree\Body;
+use Rlnks\MailTree\EmailDocument;
+use Rlnks\MailTree\Image;
+use Rlnks\MailTree\StyleSheet;
+use Rlnks\MailTree\Text;
+use Rlnks\MailTree\Translator;
+use Rlnks\MailTree\Preset\Button;
+use Rlnks\MailTree\Preset\Divider;
+use Rlnks\MailTree\Preset\Section;
+use Rlnks\MailTree\Preset\Spacer;
+use Rlnks\MailTree\Preset\TwoColumn;
+
+// ── 1. Theme & named styles ───────────────────────────────────────────────────
+
+$sheet = new StyleSheet([
+    'primaryColor'   => '#003366',
+    'textColor'      => '#444444',
+    'bgColor'        => '#f0f0f0',
+    'containerBg'    => '#ffffff',
+    'fontFamily'     => 'Arial, sans-serif',
+    'baseFontSize'   => '15px',
+    'containerWidth' => 600,
+    'marginWidth'    => 30,
+]);
+
+require __DIR__ . '/styles.php';   // populates $sheet with named styles
+
+// ── 2. Translator & runtime data ──────────────────────────────────────────────
+
+$t = new Translator(require __DIR__ . '/translations.php');
+$t->bindMany([
+    'client_name' => $customer->firstName,      // same value in every language
+    'order_id'    => (string) $order->id,
+    'order_total' => $order->formattedTotal(),
+]);
+
+// ── 3. Email skeleton ─────────────────────────────────────────────────────────
+
+$email = new EmailDocument($sheet->emailStyle());
+$email->setSubject('{{subject}}');
+$email->addLink('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700', 'stylesheet');
+
+$email->body = new Body();
+$email->body->setCSS($sheet->responsiveCss());
+
+$email->body->header  = Section::make(sheet: $sheet);
+$email->body->gap1    = Spacer::make(sheet: $sheet);
+$email->body->hero    = Section::make(sheet: $sheet);
+$email->body->gap2    = Spacer::make(sheet: $sheet);
+$email->body->intro   = Section::make(sheet: $sheet);
+$email->body->gap3    = Spacer::make(sheet: $sheet);
+$email->body->feature = TwoColumn::make(sheet: $sheet);
+$email->body->gap4    = Spacer::make(sheet: $sheet);
+$email->body->divider = Divider::make(sheet: $sheet);
+$email->body->footer  = Section::make(sheet: $sheet);
+
+// ── 4. Section styles ─────────────────────────────────────────────────────────
+
+$email->body->header->setStyle($sheet->get('header'));
+$email->body->hero->setStyle($sheet->get('hero'));
+$email->body->intro->setStyle($sheet->get('intro'));
+$email->body->feature->setStyle($sheet->get('feature'));
+$email->body->footer->setStyle($sheet->get('footer'));
+
+// ── 5. Images ─────────────────────────────────────────────────────────────────
+
+$img_logo    = new Image(
+    'https://cdn.example.com/logo.png',
+    'Example Corp',
+    ['img' => ['max-width' => '160px', 'margin' => 'auto', 'display' => 'block']],
+);
+
+$img_feature = new Image(
+    'https://cdn.example.com/portal-preview.jpg',
+    '{{feature_title}}',
+    ['img' => ['width' => '100%', 'display' => 'block']],
+);
+
+// ── 6. Links ──────────────────────────────────────────────────────────────────
+
+$link_logo  = new Anchor('https://example.com');
+$link_unsub = new Anchor('https://example.com/unsubscribe?id={{order_id}}');
+$link_rlnks = new Anchor('https://rlnks.com');
+
+// ── 7. Assemble — insert images, links and text into the skeleton ─────────────
+
+// Header — logo wrapped in a link
+$link_logo->logo = $img_logo;
+$email->body->header->body->logo = $link_logo;
+
+// Hero — headline + description
+$email->body->hero->body->title = new Text('{{hero_title}}', 'h1');
+$email->body->hero->body->desc  = new Text('{{hero_desc}}',  'div');
+
+// Intro — order summary + CTA button
+$email->body->intro->body->title = new Text('{{intro_title}}', 'h2');
+$email->body->intro->body->desc  = new Text('{{intro_desc}}',  'div');
+$email->body->intro->body->cta   = Button::make(
+    '{{intro_cta}}',
+    'https://example.com/order/{{order_id}}',
+    sheet: $sheet,
+);
+
+// Feature — two-column: image left, text + link right
+$email->body->feature->left->img    = $img_feature;
+$email->body->feature->right->title = new Text('{{feature_title}}', 'h3');
+$email->body->feature->right->desc  = new Text('{{feature_desc}}',  'div');
+$email->body->feature->right->cta   = Button::make(
+    '{{feature_cta}}',
+    'https://example.com/portal',
+    sheet: $sheet,
+);
+
+// Footer — legal, unsubscribe link, powered-by
+$email->body->footer->body->legal = new Text('{{legal}}', 'div');
+
+$link_unsub->text = new Text('{{unsub_text}}', 'span');
+$email->body->footer->body->unsub = $link_unsub;
+
+$link_rlnks->text = new Text('{{powered_by}}', 'span');
+$email->body->footer->body->brand = $link_rlnks;
+
+// ── 8. Build once ─────────────────────────────────────────────────────────────
+//
+// The tree is fully assembled. build() walks it top-down exactly once.
+// Placeholders ({{key}}) are left intact — resolve() handles them next.
+
+$base = $email->build();
+
+// ── 9. Render variants — all from the same $base ─────────────────────────────
+
+// For external ESP / template systems — {{key}} tags left untouched
+$version_tags = $t->resolve($base, 'tags');
+
+// Static language versions — for batch-send to known recipients
+$version_fr   = $t->resolve($base, 'fr');
+$version_en   = $t->resolve($base, 'en');
+
+// PHP/online version — dynamic server-side snippets for each placeholder
+// Save this to a .php file; when executed it reads live data from the DB
+$version_php  = $t->resolve($base, 'php');
+
+// Export translations for review or handoff to a translation service
+$xml = $t->toXml(['fr', 'en']);
+file_put_contents(__DIR__ . '/translations.xml', $xml);
+```
+
+**What this demonstrates:**
+
+- `styles.php` and `translations.php` are the single sources of truth for their respective concerns — touch one file to update every variant simultaneously.
+- The skeleton (step 3) reads like a wireframe: `header → gap → hero → gap → intro → gap → feature → gap → divider → footer`.
+- Images (`$img_logo`, `$img_feature`) and links (`$link_logo`, `$link_unsub`) are defined as named variables in their own blocks — easy to update centrally and reuse.
+- `$email->build()` is called exactly **once**. The same HTML tree produces four output variants without rebuilding anything.
+- `$t->resolve($base, 'tags')` is what you send to Mailchimp, Klaviyo, or any ESP that has its own merge-tag system — the `{{key}}` placeholders act as the handoff format.
+- `$t->resolve($base, 'php')` produces a self-contained PHP file suitable for inclusion in a dynamic mailer that reads client data at send time.
+
+---
+
 ## StyleSheet
 
 `StyleSheet` is the central style brain of the email. It does two independent things:
