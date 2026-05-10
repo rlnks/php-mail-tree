@@ -29,7 +29,7 @@ class Container implements Renderable
         $mergedStyle    = array_replace_recursive($style, $this->style);
         $containerStyle = $mergedStyle['container'] ?? [];
 
-        $attrs  = 'cellspacing="0" cellpadding="0" align="center"';
+        $attrs  = 'role="presentation" cellspacing="0" cellpadding="0" align="center"';
         $attrs .= $this->id    !== null ? ' id="'    . htmlspecialchars($this->id,    ENT_QUOTES) . '"' : '';
         $attrs .= $this->class !== null ? ' class="' . htmlspecialchars($this->class, ENT_QUOTES) . '"' : '';
         $attrs .= (!isset($containerStyle['border']) || $containerStyle['border'] === 'none') ? ' border="0"' : '';
