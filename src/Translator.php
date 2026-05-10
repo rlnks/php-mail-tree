@@ -117,8 +117,13 @@ class Translator
      *
      * 'tags' mode is identity — the HTML is returned unchanged.
      * Null locale falls back to the locale set via setLocale().
+     *
+     * $passes controls how many substitution rounds are run. Two passes
+     * are needed when a translated value itself contains a binding placeholder
+     * — e.g. 'confirm_desc' in French is "Bonjour {{client_name}}…", so pass 1
+     * replaces {{confirm_desc}} and pass 2 then resolves {{client_name}}.
      */
-    public function resolve(string $html, ?string $locale = null): string
+    public function resolve(string $html, ?string $locale = null, int $passes = 2): string
     {
         $locale ??= $this->locale;
 
@@ -132,11 +137,15 @@ class Translator
             . preg_quote($this->close, '/')
             . '/';
 
-        return preg_replace_callback(
-            $pattern,
-            fn(array $m): string => $this->get($m[1], $locale),
-            $html,
-        );
+        for ($i = 0; $i < $passes; $i++) {
+            $html = preg_replace_callback(
+                $pattern,
+                fn(array $m): string => $this->get($m[1], $locale),
+                $html,
+            );
+        }
+
+        return $html;
     }
 
     // ── Inspection ────────────────────────────────────────────────────────────
