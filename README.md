@@ -526,6 +526,194 @@ What it includes:
 
 ---
 
+## Translator
+
+`Translator` handles all text placeholder resolution — multi-language versions, template tag output, PHP snippet generation, and runtime variable injection. It works as a **post-processor**: write `{{key}}` in any text node, call `$email->build()` once, then resolve into as many output variants as needed.
+
+```php
+use Rlnks\MailTree\Translator;
+
+$t = new Translator(require 'translations.php');
+$t->setLocale('fr');                           // default locale
+
+$base = $email->build();                       // HTML with {{...}} intact
+
+$html_fr   = $t->resolve($base, 'fr');         // French text
+$html_en   = $t->resolve($base, 'en');         // English text
+$html_tags = $t->resolve($base, 'tags');       // placeholders untouched
+$html_php  = $t->resolve($base, 'php');        // PHP snippets
+```
+
+---
+
+### Translations file
+
+A plain PHP file that returns a keyed array. Each key maps to an array of locale → value pairs. Only include the locales you actually have — a missing locale keeps the `{{key}}` placeholder intact in the output.
+
+```php
+// translations.php
+return [
+    'welcome_title' => [
+        'fr' => 'Bienvenue!',
+        'en' => 'Welcome!',
+        // 'de' absent → {{welcome_title}} stays intact when rendering in German
+    ],
+
+    'cta_btn' => [
+        'fr' => 'Voir ma commande',
+        'en' => 'View my order',
+    ],
+
+    // 'php' key: override the generated PHP snippet for complex expressions
+    'client_name' => [
+        'fr'  => 'Client',                              // fallback for static renders
+        'en'  => 'Client',
+        'php' => '<?php echo htmlspecialchars($customer->firstName); ?>',
+    ],
+
+    // Custom locale: any name works — for external sending systems
+    'unsub_link' => [
+        'fr'         => 'Me désinscrire',
+        'en'         => 'Unsubscribe',
+        'mailchimp'  => '*|UNSUB|*',                    // Mailchimp merge tag
+        'brevo'      => '{{ unsubscribe_link }}',       // Brevo / Sendinblue tag
+    ],
+];
+```
+
+Load it:
+```php
+$t = new Translator(require 'translations.php');
+// or incrementally:
+$t->load(require 'translations.php');
+$t->define('extra_key', ['fr' => 'Extra', 'en' => 'Extra']);
+```
+
+---
+
+### Using placeholders in nodes
+
+Write `{{key}}` anywhere in a text string. Placeholders survive `build()` unchanged and are resolved by `resolve()`.
+
+```php
+$section->body->title = new Text('{{welcome_title}}', 'h1');
+$section->body->desc  = new Text('Bonjour {{client_name}}, commande #{{order_id}}', 'div');
+$section->body->cta   = Button::make('{{cta_btn}}', $url);
+```
+
+---
+
+### Runtime values — `bind()`
+
+`bind()` injects a value that applies to every locale (same across languages — client name, order ID, URL, etc.). Bindings take priority over translations for all non-`php` locales.
+
+```php
+$t->bind('client_name', $customer->firstName);
+$t->bind('order_id',    (string) $order->id);
+
+// Or in batch:
+$t->bindMany([
+    'client_name' => $customer->firstName,
+    'order_id'    => (string) $order->id,
+]);
+```
+
+---
+
+### Built-in modes
+
+| Mode | Behaviour |
+|---|---|
+| `'fr'`, `'en'`, any locale | Replace `{{key}}` with the stored translation; keep tag if absent |
+| `'tags'` | Identity — HTML returned unchanged, all `{{key}}` intact |
+| `'php'` | Replace `{{key}}` with `php` entry from data, or generated snippet |
+
+**`php` mode** is designed for generating PHP template files (`.php` mail templates for other systems). It is **protected**: `php` entries never appear in `toXml()` output and `php` is excluded from `locales()`.
+
+The default PHP snippet is configurable:
+```php
+$t = new Translator($data, phpSnippet: "<?php echo \$vars['{key}']; ?>");
+// {{welcome_title}} → <?php echo $vars['welcome_title']; ?>
+```
+
+---
+
+### XML export
+
+`toXml()` produces an XML file of all translations — useful for handing off to a translation service or storing in a CMS. The `php` locale is always excluded.
+
+```php
+$xml = $t->toXml();               // all locales
+$xml = $t->toXml(['fr', 'en']);   // specific locales only (php still excluded)
+file_put_contents('translations.xml', $xml);
+```
+
+Output format:
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<translations>
+    <string key="welcome_title">
+        <value locale="fr">Bienvenue!</value>
+        <value locale="en">Welcome!</value>
+    </string>
+    <string key="cta_btn">
+        <value locale="fr">Voir ma commande</value>
+        <value locale="en">View my order</value>
+    </string>
+</translations>
+```
+
+---
+
+### Complete workflow example
+
+```php
+// bootstrap.php ───────────────────────────────────────────────────────────────
+$t = new Translator(require 'translations.php');
+$t->bindMany([
+    'client_name' => $customer->firstName,
+    'order_id'    => (string) $order->id,
+]);
+
+// email.php — build once ──────────────────────────────────────────────────────
+$email->body->intro->body->title = new Text('{{welcome_title}}', 'h1');
+$email->body->intro->body->desc  = new Text('Bonjour {{client_name}}, commande #{{order_id}}.', 'div');
+$email->body->intro->body->cta   = Button::make('{{cta_btn}}', $orderUrl);
+$email->body->foot->body->unsub  = new Text('<a href="{{unsub_link}}">{{unsub_text}}</a>', 'div');
+
+$base = $email->build();
+
+// Render as many variants as needed ──────────────────────────────────────────
+$html_fr  = $t->resolve($base, 'fr');         // send to French recipients
+$html_en  = $t->resolve($base, 'en');         // send to English recipients
+$template = $t->resolve($base, 'tags');        // {{...}} intact for other systems
+$php_tmpl = $t->resolve($base, 'php');         // PHP template file output
+$mc_tmpl  = $t->resolve($base, 'mailchimp');   // Mailchimp merge tags
+
+// Export translations for review ──────────────────────────────────────────────
+file_put_contents('translations.xml', $t->toXml(['fr', 'en']));
+```
+
+---
+
+### API reference — `Translator`
+
+| Method | Description |
+|---|---|
+| `__construct(array $data = [], string $open = '{{', string $close = '}}', string $phpSnippet = …)` | Initialize with optional data and delimiters |
+| `load(array $data): static` | Merge a full translations array (from `require 'translations.php'`) |
+| `define(string $key, array $values): static` | Define or extend a single key |
+| `bind(string $key, string $value): static` | Runtime value — same across all locales, overrides translations |
+| `bindMany(array $values): static` | Batch bind |
+| `setLocale(string $locale): static` | Set the default locale for calls without explicit locale |
+| `getLocale(): string` | Return the current default locale |
+| `get(string $key, ?string $locale = null): string` | Resolve a single key |
+| `resolve(string $html, ?string $locale = null): string` | Replace all placeholders in an HTML string |
+| `locales(): array` | All registered locales excluding protected ones (`php`) |
+| `toXml(array $locales = []): string` | Export to XML; `php` always excluded |
+
+---
+
 ## Preset components
 
 All presets are static factories that return fully configured node trees. Use `deepclone()` to reuse a preset multiple times.
