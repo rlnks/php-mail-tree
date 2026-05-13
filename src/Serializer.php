@@ -68,7 +68,7 @@ class Serializer
 
     // ── Hydration dispatch ─────────────────────────────────────────────────────
 
-    protected static function hydrateNode(array $data, ?StyleSheet $sheet): object
+    public static function hydrateNode(array $data, ?StyleSheet $sheet = null): Renderable
     {
         return match ($data['type'] ?? '') {
             'EmailDocument'    => static::hydrateEmailDocument($data, $sheet),
