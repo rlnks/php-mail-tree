@@ -1,12 +1,3 @@
-# Files and directories excluded from composer dist packages.
-# They remain in the git repository but are not downloaded
-# when end-users run `composer install`.
-
-/.claude/                   export-ignore
-/exemple/                   export-ignore
-/generate_audit_email.php   export-ignore
-/generate_full_audit_email.php export-ignore
-/test_cascade.php           export-ignore
-/test_new_presets.php       export-ignore
-/test_translator.php        export-ignore
-*.html                      export-ignore
+# Files excluded from composer dist packages.
+/.claude/  export-ignore
+*.html     export-ignore
