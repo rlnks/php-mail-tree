@@ -33,25 +33,28 @@ Because nodes are just PHP object properties, you can **declare the email skelet
 
 ```php
 // ── 1. Skeleton — declare every section up front ──────────────────────────
-$email = new EmailDocument($sheet->emailStyle());
+$email = new EmailDocument($sheet);   // sets theme + registers $sheet as global default
 $email->body = new Body();
 $email->body->setCSS($sheet->responsiveCss());
 
-$email->body->banner   = FullWidthImage::make($heroSrc, 'Hero');
-$email->body->gap1     = Spacer::make(sheet: $sheet);
-$email->body->intro    = Section::make(sheet: $sheet);
-$email->body->gap2     = Spacer::make(sheet: $sheet);
-$email->body->features = TwoColumn::make(sheet: $sheet);
-$email->body->divider  = Divider::make(sheet: $sheet);
-$email->body->footer   = Section::make(sheet: $sheet);
+$email->body->banner   = FullWidthImage::make();  // src/href filled in step 2
+$email->body->gap1     = Spacer::make();
+$email->body->intro    = Section::make();
+$email->body->gap2     = Spacer::make();
+$email->body->features = TwoColumn::make();
+$email->body->divider  = Divider::make();
+$email->body->footer   = Section::make();
 
 // ── 2. Content — fill each section independently ──────────────────────────
+$email->body->banner->col->link->setLink($heroUrl);
+$email->body->banner->col->link->img->setSrc($heroSrc, 'Hero');
+
 $email->body->intro->body->title = new Text('Order confirmed!', 'h1');
 $email->body->intro->body->desc  = new Text('Thanks for your purchase.', 'div');
-$email->body->intro->body->cta   = Button::make('View order', $orderUrl, sheet: $sheet);
+$email->body->intro->body->cta   = Button::make('View order', $orderUrl);
 
 $email->body->features->left->img    = new Image($img1, 'Feature A');
-$email->body->features->right->title = new Text('Feature A', 'h2');
+$email->body->features->right->title = new Text('Feature **A**', 'h2');   // ** highlights in primaryColor
 $email->body->features->right->desc  = new Text('Best feature ever.', 'div');
 
 $email->body->footer->body->copy = new Text('© 2025 Acme Corp', 'div');
@@ -176,26 +179,28 @@ $sheet = new StyleSheet([
     'marginWidth'    => 30,
 ]);
 
-// 2. Bootstrap the email
-$email = new EmailDocument($sheet->emailStyle());
+// 2. Bootstrap the email — passing $sheet directly sets the theme AND registers
+//    it as the global default so every preset resolves it automatically.
+$email = new EmailDocument($sheet);
 $email->setSubject('Your order is confirmed');
 $email->addLink('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700', 'stylesheet');
 
 $email->body = new Body();
 $email->body->setCSS($sheet->responsiveCss());
 
-// 3. Build the tree with presets
-$email->body->banner    = FullWidthImage::make($heroSrc, 'Hero', href: $heroUrl, sheet: $sheet);
-$email->body->gap1      = Spacer::make(sheet: $sheet);
+// 3. Build the tree with presets — no sheet: $sheet needed anywhere
+$email->body->banner    = FullWidthImage::make($heroSrc, 'Hero', href: $heroUrl);
+$email->body->gap1      = Spacer::make();
 
-$email->body->intro     = Section::make(sheet: $sheet);
+$email->body->intro     = Section::make();
 $email->body->intro->body->title = new Text('Order confirmed!', 'h1');
 $email->body->intro->body->desc  = new Text('Thanks for your purchase.', 'div');
-$email->body->intro->body->cta   = Button::make('View order', $orderUrl, sheet: $sheet);
+$email->body->intro->body->cta   = Button::make('View order', $orderUrl);
 
-$email->body->gap2      = Spacer::make('30px');
+// Override specific CSS on a preset without touching the theme:
+$email->body->gap2      = Spacer::make(bg: '#f0f0f0');  // explicit bg, height from sheet
 
-$email->body->features  = TwoColumn::make(sheet: $sheet);
+$email->body->features  = TwoColumn::make();
 $email->body->features->left->img   = new Image($img1, 'Feature A');
 $email->body->features->right->title = new Text('Feature A', 'h2');
 
@@ -372,24 +377,26 @@ $t->bindMany([
 ]);
 
 // ── 3. Email skeleton ─────────────────────────────────────────────────────────
+// $sheet → applies theme + registers as global default (all presets auto-resolve it).
+// $t    → attached translator; build() resolves placeholders + **...** per locale.
 
-$email = new EmailDocument($sheet->emailStyle());
+$email = new EmailDocument($sheet, $t);
 $email->setSubject('{{subject}}');
 $email->addLink('https://fonts.googleapis.com/css2?family=Poppins:wght@400;700', 'stylesheet');
 
 $email->body = new Body();
 $email->body->setCSS($sheet->responsiveCss());
 
-$email->body->header  = Section::make(sheet: $sheet);
-$email->body->gap1    = Spacer::make(sheet: $sheet);
-$email->body->hero    = Section::make(sheet: $sheet);
-$email->body->gap2    = Spacer::make(sheet: $sheet);
-$email->body->intro   = Section::make(sheet: $sheet);
-$email->body->gap3    = Spacer::make(sheet: $sheet);
-$email->body->feature = TwoColumn::make(sheet: $sheet);
-$email->body->gap4    = Spacer::make(sheet: $sheet);
-$email->body->divider = Divider::make(sheet: $sheet);
-$email->body->footer  = Section::make(sheet: $sheet);
+$email->body->header  = Section::make();
+$email->body->gap1    = Spacer::make();
+$email->body->hero    = Section::make();
+$email->body->gap2    = Spacer::make();
+$email->body->intro   = Section::make();
+$email->body->gap3    = Spacer::make();
+$email->body->feature = TwoColumn::make();
+$email->body->gap4    = Spacer::make();
+$email->body->divider = Divider::make();
+$email->body->footer  = Section::make();
 
 // ── 4. Section styles ─────────────────────────────────────────────────────────
 
@@ -435,7 +442,6 @@ $email->body->intro->body->desc  = new Text('{{intro_desc}}',  'div');
 $email->body->intro->body->cta   = Button::make(
     '{{intro_cta}}',
     'https://example.com/order/{{order_id}}',
-    sheet: $sheet,
 );
 
 // Feature — two-column: image left, text + link right
@@ -445,7 +451,6 @@ $email->body->feature->right->desc  = new Text('{{feature_desc}}',  'div');
 $email->body->feature->right->cta   = Button::make(
     '{{feature_cta}}',
     'https://example.com/portal',
-    sheet: $sheet,
 );
 
 // Footer — legal, unsubscribe link, powered-by
@@ -457,25 +462,22 @@ $email->body->footer->body->unsub = $link_unsub;
 $link_rlnks->text = new Text('{{powered_by}}', 'span');
 $email->body->footer->body->brand = $link_rlnks;
 
-// ── 8. Build once ─────────────────────────────────────────────────────────────
-//
-// The tree is fully assembled. build() walks it top-down exactly once.
-// Placeholders ({{key}}) are left intact — resolve() handles them next.
+// ── 8. Render per locale (workflow A) ────────────────────────────────────────
+// build() resolves placeholders and **...** highlighting in one pass.
+// setLocale() on the attached $t propagates immediately — no re-attachment.
 
-$base = $email->build();
+$t->setLocale('fr');
+$version_fr = $email->build();
 
-// ── 9. Render variants — all from the same $base ─────────────────────────────
+$t->setLocale('en');
+$version_en = $email->build();
 
-// For external ESP / template systems — {{key}} tags left untouched
-$version_tags = $t->resolve($base, 'tags');
+// ── 9. ESP / PHP exports (workflow B) ────────────────────────────────────────
+// Build without a locale to get raw {{placeholders}}, then resolve for each format.
 
-// Static language versions — for batch-send to known recipients
-$version_fr   = $t->resolve($base, 'fr');
-$version_en   = $t->resolve($base, 'en');
-
-// PHP/online version — dynamic server-side snippets for each placeholder
-// Save this to a .php file; when executed it reads live data from the DB
-$version_php  = $t->resolve($base, 'php');
+$base         = $email->build();
+$version_tags = $t->resolve($base, 'tags');   // {{key}} intact — for Mailchimp, Klaviyo, etc.
+$version_php  = $t->resolve($base, 'php');    // PHP snippet template
 
 // Export translations for review or handoff to a translation service
 $xml = $t->toXml(['fr', 'en']);
@@ -484,10 +486,10 @@ file_put_contents(__DIR__ . '/translations.xml', $xml);
 
 **What this demonstrates:**
 
-- `styles.php` and `translations.php` are the single sources of truth for their respective concerns — touch one file to update every variant simultaneously.
+- `styles.php` and `translations.php` are the single sources of truth for their respective concerns.
 - The skeleton (step 3) reads like a wireframe: `header → gap → hero → gap → intro → gap → feature → gap → divider → footer`.
-- Images (`$img_logo`, `$img_feature`) and links (`$link_logo`, `$link_unsub`) are defined as named variables in their own blocks — easy to update centrally and reuse.
-- `$email->build()` is called exactly **once**. The same HTML tree produces four output variants without rebuilding anything.
+- Images and links are defined as named variables — easy to update centrally and reuse.
+- Workflow A (`build()` per locale) gives full highlighting support. Workflow B (`resolve()` post-build) is lightweight and suits ESP/PHP export formats.
 - `$t->resolve($base, 'tags')` is what you send to Mailchimp, Klaviyo, or any ESP that has its own merge-tag system — the `{{key}}` placeholders act as the handoff format.
 - `$t->resolve($base, 'php')` produces a self-contained PHP file suitable for inclusion in a dynamic mailer that reads client data at send time.
 
@@ -519,6 +521,7 @@ The StyleSheet constructor takes **design tokens**, not CSS properties. Tokens a
 | `containerWidth` | `600` | Email width in px (integer) |
 | `marginWidth` | `30` | Left/right gutter width in px |
 | `spacerHeight` | `20px` | Default vertical spacer height |
+| `spacerBg` | `''` | Spacer background — empty falls back to `containerBg` |
 | `buttonRadius` | `4px` | Button corner radius |
 | `buttonHeight` | `50` | Button height in px (integer) |
 | `buttonWidth` | `200` | Button width in px (integer) |
@@ -557,6 +560,7 @@ Style arrays throughout the library are always nested under a **semantic key** t
 'div'/'p'/'span'/… → same as above
 'img'       → <img> element                 (used by Image)
 'a'         → <a> element                   (used by Anchor)
+'highlight' → inline <span> for **...**     (used by Text — see Text highlighting below)
 ```
 
 **Why `container` and `column` instead of `table` and `td`?**
@@ -592,10 +596,12 @@ new Text('Hello', 'h1', [
 
 These methods read your tokens and produce a ready-to-use style array with the correct semantic keys and standard CSS properties. Pass the return value directly to the matching constructor.
 
-**`emailStyle()`** — pass to `new EmailDocument()`
+**`emailStyle()`** — used internally by `new EmailDocument($sheet)`
+
+Pass `$sheet` directly to `EmailDocument` — it calls `emailStyle()` internally and also registers itself as the global default so all preset `make()` calls in the same script auto-resolve it without needing `sheet: $sheet`.
 
 ```php
-$email = new EmailDocument($sheet->emailStyle());
+$email = new EmailDocument($sheet);
 ```
 
 Produces (for the theme above):
@@ -624,7 +630,7 @@ This style array becomes the *root* of the cascade — every child node in the t
 
 | Generator method | Pass to | What it produces |
 |---|---|---|
-| `emailStyle()` | `new EmailDocument(…)` | body bg, global font, heading + link colors |
+| `emailStyle()` | called internally by `new EmailDocument($sheet)` | body bg, global font, heading + link + highlight colors |
 | `containerStyle()` | `new Container(…)` | container key with width, bg, table resets |
 | `outerContainerStyle()` | `new Container(…, mso: true)` | same + no bg (transparent outer wrapper) |
 | `marginColumnStyle()` | `new Column(…)` | column key with gutter width |
@@ -695,6 +701,9 @@ $sheet->extend('hero', [
 | `get(string $name, array $overrides = [])` | Retrieve — optionally merged with one-off overrides |
 | `extend(string $name, array $extra)` | Merge additional keys into an existing definition |
 | `has(string $name)` | Check whether a name is registered |
+| `useAsDefault(): static` | Register this instance as the process-wide default — all presets resolve it automatically when no `$sheet` is passed. Called automatically by `new EmailDocument($sheet)`. Returns `$this` for chaining. |
+| `static getDefault(): ?static` | Return the current default, or `null` if none set |
+| `static clearDefault(): void` | Clear the default (useful in tests) |
 
 ---
 
@@ -739,15 +748,15 @@ $sheet->define('credits', [
 $sheet = new StyleSheet(['primaryColor' => '#e63946', /* … */]);
 require 'my_styles.php';   // populates $sheet with all named styles
 
-$email = new EmailDocument($sheet->emailStyle());
+$email = new EmailDocument($sheet);   // applies theme + registers global default
 $email->body = new Body();
 $email->body->setCSS($sheet->responsiveCss());
 
 // ── Structure ──────────────────────────────────────────────────────────────
-$email->body->logo    = Section::make(sheet: $sheet);
-$email->body->hero    = Section::make(sheet: $sheet);
-$email->body->promo   = Section::make(sheet: $sheet);
-$email->body->credits = Section::make(sheet: $sheet);
+$email->body->logo    = Section::make();   // no sheet: needed — default auto-resolved
+$email->body->hero    = Section::make();
+$email->body->promo   = Section::make();
+$email->body->credits = Section::make();
 
 // ── Styles — one line per section ─────────────────────────────────────────
 $email->body->logo->setStyle($sheet->get('logo'));
@@ -817,21 +826,50 @@ What it includes:
 
 ## Translator
 
-`Translator` handles all text placeholder resolution — multi-language versions, template tag output, PHP snippet generation, and runtime variable injection. It works as a **post-processor**: write `{{key}}` in any text node, call `$email->build()` once, then resolve into as many output variants as needed.
+`Translator` handles all text placeholder resolution — multi-language versions, template tag output, PHP snippet generation, and runtime variable injection.
+
+There are two workflows. Choose based on whether you need per-section `**...**` highlight overrides.
+
+---
+
+### Workflow A — attached translator (recommended)
+
+Attach `$t` to `EmailDocument`. Each `build()` call resolves placeholders and processes `**...**` highlighting in the same pass, so per-section highlight CSS overrides work correctly.
 
 ```php
 use Rlnks\MailTree\Translator;
 
 $t = new Translator(require 'translations.php');
-$t->setLocale('fr');                           // default locale
+$t->bindMany(['customer.first_name' => $customer->firstName]);
 
+$email = new EmailDocument($sheet, $t);   // $t attached here
+// … build tree …
+
+$t->setLocale('fr');
+$html_fr = $email->build();   // resolves + highlights in one pass
+
+$t->setLocale('en');
+$html_en = $email->build();
+```
+
+Since `$t` is an object, `setLocale()` propagates to the attached reference — no re-attachment needed between renders.
+
+---
+
+### Workflow B — post-processor (build once, resolve many)
+
+Build the tree once with `{{placeholders}}` intact, then resolve into as many variants as needed. `**...**` in translation values won't be highlighted (only static `**...**` in Text nodes is), but this workflow lets you produce `tags`, `php`, and custom ESP formats cheaply.
+
+```php
 $base = $email->build();                       // HTML with {{...}} intact
 
 $html_fr   = $t->resolve($base, 'fr');         // French text
 $html_en   = $t->resolve($base, 'en');         // English text
-$html_tags = $t->resolve($base, 'tags');       // placeholders untouched
-$html_php  = $t->resolve($base, 'php');        // PHP snippets
+$html_tags = $t->resolve($base, 'tags');       // placeholders untouched (for Mailchimp etc.)
+$html_php  = $t->resolve($base, 'php');        // PHP snippet template
 ```
+
+You can mix both: use workflow A for the rendered locales, and workflow B for `tags`/`php` exports from the same base.
 
 ---
 
@@ -882,13 +920,15 @@ $t->define('extra_key', ['fr' => 'Extra', 'en' => 'Extra']);
 
 ### Using placeholders in nodes
 
-Write `{{key}}` anywhere in a text string. Placeholders survive `build()` unchanged and are resolved by `resolve()`.
+Write `{{key}}` anywhere in a text string. Keys support dots (`customer.first_name`) and optional spaces inside braces (`{{ key }}`).
 
 ```php
 $section->body->title = new Text('{{welcome_title}}', 'h1');
-$section->body->desc  = new Text('Bonjour {{client_name}}, commande #{{order_id}}', 'div');
+$section->body->desc  = new Text('Bonjour {{customer.first_name}}, commande #{{order_id}}', 'div');
 $section->body->cta   = Button::make('{{cta_btn}}', $url);
 ```
+
+With an attached translator (workflow A) placeholders are resolved inside `build()`. With workflow B they survive `build()` and are resolved by `resolve()` afterward.
 
 ---
 
@@ -957,29 +997,34 @@ Output format:
 ### Complete workflow example
 
 ```php
-// bootstrap.php ───────────────────────────────────────────────────────────────
 $t = new Translator(require 'translations.php');
 $t->bindMany([
-    'client_name' => $customer->firstName,
-    'order_id'    => (string) $order->id,
+    'customer.first_name' => $customer->firstName,
+    'order_id'            => (string) $order->id,
 ]);
 
-// email.php — build once ──────────────────────────────────────────────────────
-$email->body->intro->body->title = new Text('{{welcome_title}}', 'h1');
-$email->body->intro->body->desc  = new Text('Bonjour {{client_name}}, commande #{{order_id}}.', 'div');
+$email = new EmailDocument($sheet, $t);   // attach translator
+
+// … build tree …
+$email->body->intro->body->title = new Text('**{{welcome_title}}**', 'h1');
+$email->body->intro->body->desc  = new Text('Bonjour **{{customer.first_name}}**, commande #{{order_id}}.', 'div');
 $email->body->intro->body->cta   = Button::make('{{cta_btn}}', $orderUrl);
 $email->body->foot->body->unsub  = new Text('<a href="{{unsub_link}}">{{unsub_text}}</a>', 'div');
 
-$base = $email->build();
+// ── Workflow A — per-locale build (highlight works with translations) ──────────
+$t->setLocale('fr');
+$html_fr = $email->build();   // resolves + highlights in one pass
 
-// Render as many variants as needed ──────────────────────────────────────────
-$html_fr  = $t->resolve($base, 'fr');         // send to French recipients
-$html_en  = $t->resolve($base, 'en');         // send to English recipients
-$template = $t->resolve($base, 'tags');        // {{...}} intact for other systems
-$php_tmpl = $t->resolve($base, 'php');         // PHP template file output
-$mc_tmpl  = $t->resolve($base, 'mailchimp');   // Mailchimp merge tags
+$t->setLocale('en');
+$html_en = $email->build();
 
-// Export translations for review ──────────────────────────────────────────────
+// ── Workflow B — post-build resolve (for ESP formats, php template) ───────────
+$base     = $email->build();                    // {{placeholders}} intact
+$template = $t->resolve($base, 'tags');          // for Mailchimp, Klaviyo, etc.
+$php_tmpl = $t->resolve($base, 'php');           // dynamic PHP template
+$mc_tmpl  = $t->resolve($base, 'mailchimp');     // Mailchimp merge tags
+
+// Export for translation service
 file_put_contents('translations.xml', $t->toXml(['fr', 'en']));
 ```
 
@@ -994,12 +1039,17 @@ file_put_contents('translations.xml', $t->toXml(['fr', 'en']));
 | `define(string $key, array $values): static` | Define or extend a single key |
 | `bind(string $key, string $value): static` | Runtime value — same across all locales, overrides translations |
 | `bindMany(array $values): static` | Batch bind |
-| `setLocale(string $locale): static` | Set the default locale for calls without explicit locale |
-| `getLocale(): string` | Return the current default locale |
+| `setLocale(string $locale): static` | Set the active locale; propagates immediately if `$t` is attached to `EmailDocument` |
+| `getLocale(): string` | Return the current locale |
 | `get(string $key, ?string $locale = null): string` | Resolve a single key |
-| `resolve(string $html, ?string $locale = null): string` | Replace all placeholders in an HTML string |
+| `resolve(string $html, ?string $locale = null): string` | Replace all `{{key}}` placeholders in an HTML string (workflow B) |
 | `locales(): array` | All registered locales excluding protected ones (`php`) |
 | `toXml(array $locales = []): string` | Export to XML; `php` always excluded |
+| `useAsDefault(): static` | Register as process-wide default — called automatically by `EmailDocument::build()` |
+| `static getDefault(): ?static` | Return the current default, or `null` |
+| `static clearDefault(): void` | Clear the default (useful in tests) |
+
+**Placeholder syntax:** Keys support word characters, dots, and optional surrounding spaces — `{{key}}`, `{{ key }}`, `{{customer.first_name}}` are all valid.
 
 ---
 
@@ -1013,10 +1063,14 @@ All presets are static factories that return fully configured node trees. Use `d
 use Rlnks\MailTree\Preset\Spacer;
 
 $frame->gap1 = Spacer::make('20px');
-$frame->gap2 = Spacer::make(sheet: $sheet);   // uses sheet's spacerHeight
+$frame->gap2 = Spacer::make(sheet: $sheet);          // uses sheet's spacerHeight + spacerBg
+$frame->gap3 = Spacer::make('40px', sheet: $sheet);  // explicit height, sheet bg
+$frame->gap4 = Spacer::make('20px', bg: '#f0f0f0');  // explicit bg override
 ```
 
 Every spacer sets `font-size`, `line-height`, and `height` to the same value + `mso-line-height-rule: exactly` — the only reliable way to enforce pixel-perfect height in Outlook.
+
+**Background color:** when a `$sheet` is provided, the spacer inherits `spacerBg` from the theme. If `spacerBg` is empty (the default), it falls back to `containerBg` — so spacers visually blend with the surrounding sections without any extra configuration. Pass `bg:` explicitly to override per-instance. Without a sheet, the default is `transparent`.
 
 ### `Divider`
 
@@ -1028,7 +1082,7 @@ $frame->rule = Divider::make(color: '#cccccc', width: '2px', paddingY: '20px');
 $frame->rule = Divider::make(sheet: $sheet);
 ```
 
-Renders a `border-bottom` on a collapsed `<td>` (`font-size:0; line-height:0; height:0`) — the only approach that works reliably across Outlook, Gmail, and Apple Mail.
+Renders a `border-bottom` on a collapsed `<td>` (`font-size:0; line-height:0; height:0`) — the only approach that works reliably across Outlook, Gmail, and Apple Mail. The container is bounded by `max-width: containerWidth` so it stays within the email column on wide viewports.
 
 ### `Button` — VML hybrid
 
@@ -1056,9 +1110,20 @@ VML arcsize formula: `round(borderRadiusPx / min(width, height) * 100)`, capped 
 ```php
 use Rlnks\MailTree\Preset\FullWidthImage;
 
+// Inline — everything in one call:
 $frame->hero = FullWidthImage::make($src, 'Hero image');
-$frame->hero = FullWidthImage::make($src, $alt, href: 'https://…', sheet: $sheet);
+$frame->hero = FullWidthImage::make($src, $alt, href: 'https://…');
+
+// Skeleton-first — declare structure now, fill content later:
+$email->body->hero = FullWidthImage::make();
+// … later in the content section …
+$email->body->hero->col->link->setLink($heroUrl);       // empty href → no <a> wrapper
+$email->body->hero->col->link->img->setSrc($heroSrc, $heroAlt);
 ```
+
+All parameters are optional — `$src`, `$alt`, and `$href` all default to `''`. The tree structure is always `col → link (Anchor) → img (Image)` regardless of whether a link is used, so `->col->link` and `->col->link->img` are always accessible for deferred assignment.
+
+When `href` is empty the `Anchor` renders transparently — its children output without any `<a>` wrapper. Set a link later via `->col->link->setLink($url)`.
 
 No margin columns — image runs edge-to-edge. Uses `width="600"` HTML attribute alongside CSS `width:100%` so Outlook (which ignores `max-width`) still constrains the image. `display:block` eliminates the 4px baseline gap beneath inline images.
 
@@ -1106,6 +1171,154 @@ $row->col3->img = new Image($src3, '');
 ```
 
 Columns tagged `col-3` → stack to full-width on mobile. If `(containerWidth − margins)` is not divisible by 3, the remainder pixels go to `col1` to avoid sub-pixel Outlook overflow.
+
+### `NColumn` — N-column responsive grid
+
+```php
+use Rlnks\MailTree\Preset\NColumn;
+
+$row = NColumn::make(4, sheet: $sheet);           // 4 equal columns
+$row->col1->img = new Image($src1, '');
+$row->col2->img = new Image($src2, '');
+
+// Asymmetric widths (percentages, must sum to 100):
+$row = NColumn::make(2, widths: [40, 60], sheet: $sheet);
+```
+
+Columns tagged `col-N` (e.g. `col-4`) → `display:block; width:100%` on mobile. Remainder pixels after integer division are added to the first column.
+
+### `AlertBar`
+
+```php
+use Rlnks\MailTree\Preset\AlertBar;
+
+$alert = AlertBar::make('Your account is pending verification.', sheet: $sheet);
+$alert = AlertBar::make('Shipped!', type: 'success', icon: '✓', sheet: $sheet);
+// types: 'info' (default) | 'success' | 'warning' | 'error'
+```
+
+Full-width colored banner with an optional icon prefix. Color and icon default to the `type`. Pass `bgColor:` / `textColor:` / `icon:` to override any part.
+
+### `BulletList`
+
+```php
+use Rlnks\MailTree\Preset\BulletList;
+
+$list = BulletList::make([
+    'Free shipping on all orders',
+    'Cancel anytime',
+    '30-day money-back guarantee',
+], sheet: $sheet);
+
+// Custom bullet character:
+$list = BulletList::make($items, bullet: '→', sheet: $sheet);
+```
+
+Table-based bullet list compatible with all email clients. Each item renders as a two-cell row: bullet character + text. Place inside a `Section->body` — it is a content component, not a standalone layout block.
+
+### `Coupon`
+
+```php
+use Rlnks\MailTree\Preset\Coupon;
+
+$coupon = Coupon::make(code: 'SAVE20', label: 'Use code at checkout', sheet: $sheet);
+$coupon = Coupon::make(code: 'PROMO', bgColor: '#003366', textColor: '#ffffff', sheet: $sheet);
+```
+
+Centered promo code block with a dashed border and a copyable code. Designed to stand alone at the email body level.
+
+### `DataTable`
+
+```php
+use Rlnks\MailTree\Preset\DataTable;
+
+$table = DataTable::make(
+    headers: ['Item', 'Qty', 'Price'],
+    rows: [
+        ['Widget A', '2', '$9.99'],
+        ['Widget B', '1', '$14.99'],
+    ],
+    sheet: $sheet,
+);
+$section->body->table = $table;
+```
+
+Structured data table with header row. Carries the `datatable` CSS class, which `responsiveCss()` targets to reduce padding and font size on narrow viewports. Place inside a `Section->body` — it is a content component, not a standalone layout block.
+
+### `Quote`
+
+```php
+use Rlnks\MailTree\Preset\Quote;
+
+$q = Quote::make(
+    text:   '"This product changed my workflow completely."',
+    author: 'Jane D., Designer',
+    sheet:  $sheet,
+);
+```
+
+Blockquote-style callout with a left border accent and optional author attribution. Uses `primaryColor` for the border.
+
+### `PricingTable`
+
+```php
+use Rlnks\MailTree\Preset\PricingTable;
+
+$pricing = PricingTable::make([
+    ['name' => 'Basic',  'price' => '$9',  'features' => ['1 user', '5 GB']],
+    ['name' => 'Pro',    'price' => '$29', 'features' => ['5 users', '50 GB'], 'highlight' => true],
+    ['name' => 'Enterprise', 'price' => '$99', 'features' => ['Unlimited', '500 GB']],
+], sheet: $sheet);
+```
+
+Side-by-side pricing tier cards. The highlighted column (`'highlight' => true`) renders with a filled `primaryColor` background and no border; other columns use a `1px` border. Column widths are computed to exactly fill the container without overflow.
+
+### `StepIndicator`
+
+```php
+use Rlnks\MailTree\Preset\StepIndicator;
+
+$steps = StepIndicator::make(
+    steps:   ['Order placed', 'Processing', 'Shipped', 'Delivered'],
+    current: 1,   // zero-based; 0 = first active
+    sheet:   $sheet,
+);
+$email->body->progress = $steps;
+```
+
+Horizontal step-progress tracker with numbered circles and connector lines. Steps before `$current` are "completed" (filled + checkmark), `$current` is "active" (filled), steps after are "upcoming" (hollow). Circle border-radius is applied to the `<td>` (not the `<table>`) for consistent 32×32px rendering across clients. Outlook renders the circles as squares — acceptable fallback.
+
+### `SocialBar`
+
+```php
+use Rlnks\MailTree\Preset\SocialBar;
+
+$bar = SocialBar::make([
+    ['platform' => 'facebook',  'url' => 'https://facebook.com/acme'],
+    ['platform' => 'twitter',   'url' => 'https://twitter.com/acme'],
+    ['platform' => 'instagram', 'url' => 'https://instagram.com/acme'],
+    // Custom icon:
+    ['platform' => 'custom', 'url' => 'https://…', 'icon' => 'https://cdn/icon.png', 'alt' => 'Podcast'],
+], sheet: $sheet);
+$email->body->footer->body->social = $bar;
+```
+
+Row of social icon links. Built-in platforms: `facebook`, `twitter`, `instagram`, `linkedin`, `youtube`, `pinterest`, `tiktok`, `github`. Each icon is an `<a>`-wrapped `<img>` with `border="0"` and `moz-do-not-send="true"`. Replace the placeholder icon URLs with CDN-hosted images for production.
+
+### `VideoBlock`
+
+```php
+use Rlnks\MailTree\Preset\VideoBlock;
+
+$video = VideoBlock::make(
+    thumbnail: 'https://cdn/thumb.jpg',
+    href:      'https://youtube.com/watch?v=…',
+    alt:       'Watch the product demo',
+    sheet:     $sheet,
+);
+```
+
+Clickable video thumbnail with a centered play-button overlay. Since video cannot play inline in email, this renders a linked image that opens the video in a browser. Uses `FullWidthImage` internally.
 
 ---
 
@@ -1155,12 +1368,12 @@ $frame->before_footer = deepclone($spacer);
 
 | Method | Description |
 |---|---|
-| `__construct(array $style = [])` | Initialize. Use `$sheet->emailStyle()` as argument. |
+| `__construct(?StyleSheet $sheet = null, ?Translator $t = null)` | `$sheet` applies the theme and registers itself as the global default. `$t` attaches a translator — placeholders and `**...**` are resolved on every `build()` call. |
 | `setSubject(string $title)` | `<title>` tag and email subject |
 | `addLink(string $href, string $rel)` | `<link>` in `<head>` (Google Fonts, etc.) |
 | `setStyle(array $style)` | Merge additional styles |
 | `getStyle(): array` | Full resolved style array |
-| `build(): string` | Render the complete HTML document |
+| `build(array $style = [], int $indent = 0, ?Translator $t = null, ?string $locale = null): string` | Render the document. With an attached translator the locale set on `$t` is used. Pass `$t`/`$locale` explicitly to override for a single call. |
 
 The methods below marked **†** are available on all nodes that can have children (`Body`, `Container`, `Column`, `Text`, `Anchor`). `Image` only supports `hide()`/`show()`.
 
@@ -1219,11 +1432,11 @@ Renders as `<td>`.
 
 ### `Text`
 
-Wraps content in any inline or block tag. With `$tag = null` acts as a transparent wrapper.
+Wraps content in any inline or block tag. With `$tag = null` acts as a transparent wrapper. Supports inline `**...**` markup — see [Text highlighting](#text-highlighting).
 
 | Method | Description |
 |---|---|
-| `__construct(string $text, ?string $tag = null, array $style = [])` | `$tag`: `h1`, `h2`, `h3`, `div`, `p`, `span`, etc. |
+| `__construct(string $text, ?string $tag = null, array $style = [])` | `$tag`: `h1`, `h2`, `h3`, `div`, `p`, `span`, etc. `**...**` in `$text` is highlighted at render time |
 | `setStyle(array $style)` | Merge style overrides |
 | `getStyle(): array` | Full resolved style array |
 | `hide() / show()` | Toggle visibility in the rendered output |
@@ -1248,8 +1461,8 @@ Emits `width`/`height` HTML attributes only when the CSS value is a plain intege
 
 | Method | Description |
 |---|---|
-| `__construct(string $href = '#', array $style = [])` | |
-| `setLink(string $href)` | Update href after construction |
+| `__construct(string $href = '', array $style = [])` | `href = ''` → renders transparently (no `<a>` tag, children output directly) |
+| `setLink(string $href)` | Update href after construction; set to `''` to remove the link wrapper |
 | `setStyle(array $style)` | Merge style overrides |
 | `getStyle(): array` | Full resolved style array |
 | `hide() / show()` | Toggle visibility in the rendered output |
@@ -1257,6 +1470,57 @@ Emits `width`/`height` HTML attributes only when the CSS value is a plain intege
 | `insertBefore / insertAfter` † | See `Body` above |
 | `detach / replaceWith / duplicate / getChildren` † | See `Body` above |
 | `applyStyle(array $style)` † | See `Body` above |
+
+---
+
+## Text highlighting
+
+Any `Text` node supports inline `**...**` markup. At render time, content wrapped in double asterisks is output as a `<span>` with the `highlight` style from the cascade — by default `font-weight:bold` + `primaryColor`.
+
+```php
+$section->body->intro = new Text('Bonjour **{{customer.first_name}}**, votre commande est confirmée.', 'p');
+$section->body->price = new Text('Total: **$49.99**', 'div');
+```
+
+With an attached translator (workflow A), `{{customer.first_name}}` is resolved first, then `**...**` is applied with the section's CSS — so per-section highlight overrides work correctly:
+
+```html
+<p style="…">Bonjour <span style="color:#003366;font-weight:bold;">Philippe</span>, votre commande est confirmée.</p>
+```
+
+**`**...**` in translation values** — also works with workflow A, because placeholders and highlighting are resolved in the same `build()` pass:
+
+```php
+// translations.php
+'greetings' => [
+    'fr' => 'Salut **{{ customer.first_name }}**,',
+    'en' => 'Hello **{{ customer.first_name }}**,',
+],
+
+// template
+$section->body->greeting = new Text('{{greetings}}', 'p');
+// build() resolves {{greetings}} → 'Salut **Philippe**,' → <span style="SECTION_CSS">Philippe</span>
+```
+
+With workflow B (`$t->resolve()` post-build) the highlight style from the cascade is no longer available, so `**...**` that arrives inside a translation value won't be processed. Use workflow A, or write HTML directly in the translation value.
+
+**Customizing the highlight style** — override the `highlight` key in your StyleSheet. It follows the same base-style pattern as `h1`, `container`, etc.:
+
+```php
+$sheet = new StyleSheet([
+    'primaryColor' => '#e63946',
+    'highlight' => [
+        'color'            => '#e63946',
+        'font-weight'      => 'bold',
+        'background-color' => '#fff0f0',
+        'padding'          => '1px 3px',
+    ],
+]);
+```
+
+**Notes:**
+- Requires a StyleSheet attached to `EmailDocument` — without one, `**...**` is left as-is.
+- A `str_contains` check short-circuits the regex when `**` is absent — no cost on nodes that don't use the feature.
 
 ---
 
@@ -1268,13 +1532,18 @@ Every class and preset follows current best practices:
 - `cellpadding="0" cellspacing="0"` on all `<table>` elements
 - `table-layout: fixed` prevents cell width negotiation in Outlook
 - `display: block` on `<img>` eliminates the 4px baseline gap
+- `border="0"` HTML attribute on `<img>` prevents blue link-borders in Outlook and old clients that ignore inline CSS
+- `moz-do-not-send="true"` on `<img>` prevents Thunderbird from attaching images as file attachments
 - Numeric `width`/`height` HTML attributes on images alongside CSS (Outlook ignores `max-width`)
-- Spacers: `font-size`, `line-height`, `height` all equal + `mso-line-height-rule: exactly`
-- Dividers: `border-bottom` on `<td>` with collapsed font/line/height
-- Buttons: VML `<v:roundrect>` for Outlook + `inline-block <a>` for all others
-- Responsive: `@media` query + `display: block` column stacking
+- `htmlspecialchars($href, ENT_QUOTES)` on all link hrefs — prevents XSS and invalid HTML from URLs with `&` query params
+- Spacers: `font-size`, `line-height`, `height` all equal + `mso-line-height-rule: exactly`; bounded by `max-width: containerWidth`; background defaults to `containerBg` via `spacerBg` theme token
+- Dividers: `border-bottom` on `<td>` with collapsed font/line/height; bounded by `max-width: containerWidth`
+- Buttons: VML `<v:roundrect>` for Outlook + `inline-block <a>` for all others; `arcsize` derived from `borderRadius ÷ min(width, height)`
+- Rounded circles (StepIndicator): `border-radius: 50%` on the `<td>` — not the `<table>` — for consistent content-box dimension rendering in all clients. Outlook renders them as squares (acceptable fallback)
+- DataTable: carries a `datatable` CSS class so `responsiveCss()` can reduce padding and font size on narrow viewports without breaking the inline-CSS-first model
+- Responsive: `@media` query + `display: block` column stacking; `datatable` class for table cell padding reduction on mobile
 - Client resets: Outlook.com ExternalClass, Apple data detectors, Gmail `u + .body a`, Samsung Mail
-- Dark mode: CSS stub provided in `responsiveCss()`
+- Dark mode: `responsiveCss(darkMode: true)` emits a `@media (prefers-color-scheme: dark)` block driven by the `dark*` theme tokens
 
 ---
 

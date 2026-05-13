@@ -44,7 +44,9 @@ class NColumn
         int         $containerWidth = 0,
         int         $marginWidth    = 0,
         ?StyleSheet $sheet          = null,
+        string      $responsive     = '',
     ): Container {
+        $sheet ??= StyleSheet::getDefault();
         $columns = max(1, $columns);
         $cw      = $containerWidth ?: ($sheet?->containerWidth() ?? 600);
         $mw      = $marginWidth    ?: ($sheet?->marginWidth()    ?? 30);
@@ -52,13 +54,10 @@ class NColumn
 
         $pixelWidths = static::resolveWidths($columns, $widths, $inner);
 
-        $containerBg = $sheet?->containerBg() ?? '#ffffff';
-
         $c = new Container([
             'container' => [
                 'width'            => "{$cw}px",
                 'max-width'        => "{$cw}px",
-                'background-color' => $containerBg,
                 'border-collapse'  => 'collapse',
                 'table-layout'     => 'fixed',
                 'mso-table-lspace' => '0pt',
@@ -82,6 +81,10 @@ class NColumn
         }
 
         $c->rmargin = deepclone($margin);
+
+        if ($responsive !== '') {
+            $c->setResponsive($responsive);
+        }
 
         return $c;
     }

@@ -4,6 +4,7 @@ namespace Rlnks\MailTree\Preset;
 
 use Rlnks\MailTree\Column;
 use Rlnks\MailTree\Container;
+use Rlnks\MailTree\RawHtml;
 use Rlnks\MailTree\StyleSheet;
 use Rlnks\MailTree\Text;
 
@@ -37,7 +38,9 @@ class PricingTable
         int         $containerWidth = 0,
         int         $marginWidth    = 0,
         ?StyleSheet $sheet          = null,
+        string      $responsive     = '',
     ): Container {
+        $sheet ??= StyleSheet::getDefault();
         $cw    = $containerWidth ?: ($sheet?->containerWidth() ?? 600);
         $mw    = $marginWidth    ?: ($sheet?->marginWidth()    ?? 30);
         $inner = $cw - $mw * 2;
@@ -55,7 +58,6 @@ class PricingTable
             'container' => [
                 'width'            => "{$cw}px",
                 'max-width'        => "{$cw}px",
-                'background-color' => $containerBg,
                 'border-collapse'  => 'collapse',
                 'table-layout'     => 'fixed',
                 'mso-table-lspace' => '0pt',
@@ -69,10 +71,14 @@ class PricingTable
         $c->lmargin = $marginCol;
 
         $cssClass = "col-{$n}";
+        $hPad     = 32; // 2 × 16px horizontal padding applied to each column
 
         foreach ($tiers as $i => $tier) {
-            $w           = $colW + ($i === 0 ? $extra : 0);
             $highlighted = !empty($tier['highlight']);
+            // Subtract horizontal padding and border from the column CSS width so the
+            // total rendered cell (content + padding + border) stays within the container.
+            $borderPx    = $highlighted ? 0 : 2; // 1px border each side when not highlighted
+            $w           = $colW + ($i === 0 ? $extra : 0) - $hPad - $borderPx;
             $colBg       = $highlighted ? $primary : $containerBg;
             $nameColor   = $highlighted ? '#ffffff' : $primary;
             $priceColor  = $highlighted ? '#ffffff' : $primary;
@@ -93,8 +99,8 @@ class PricingTable
             $col->setClass($cssClass);
 
             // Tier name
-            $col->name = new Text($tier['name'] ?? '', 'div', [
-                'div' => [
+            $col->name = new Text($tier['name'] ?? '', 'p', [
+                'p' => [
                     'color'         => $nameColor,
                     'font-family'   => $fontFamily,
                     'font-size'     => '13px',
@@ -108,8 +114,8 @@ class PricingTable
 
             // Price
             $priceText = ($tier['price'] ?? '') . (isset($tier['period']) && $tier['period'] !== '' ? '<span style="font-size:13px;font-weight:normal;">' . $tier['period'] . '</span>' : '');
-            $col->price = new Text($priceText, 'div', [
-                'div' => [
+            $col->price = new Text($priceText, 'p', [
+                'p' => [
                     'color'       => $priceColor,
                     'font-family' => $fontFamily,
                     'font-size'   => '32px',
@@ -120,16 +126,29 @@ class PricingTable
                 ],
             ]);
 
-            // Feature list
+            // Feature list — rendered as a table to avoid div layout elements
             if (!empty($tier['features'])) {
-                $featuresHtml = '';
+                $borderC  = $highlighted ? 'rgba(255,255,255,0.2)' : $border;
+                $featRows = '';
                 foreach ($tier['features'] as $feat) {
-                    $featuresHtml .= '<div style="padding:5px 0;border-bottom:1px solid ' . ($highlighted ? 'rgba(255,255,255,0.2)' : $border) . ';color:' . $featColor . ';font-family:' . $fontFamily . ';font-size:13px;">' . htmlspecialchars($feat, ENT_QUOTES) . '</div>';
+                    $tdStyle = implode(';', [
+                        'padding:5px 0',
+                        'border-bottom:1px solid ' . $borderC,
+                        'color:' . $featColor,
+                        'font-family:' . $fontFamily,
+                        'font-size:13px',
+                        'text-align:center',
+                    ]);
+                    $featRows .= '<tr><td style="' . $tdStyle . '">' . htmlspecialchars($feat, ENT_QUOTES) . '</td></tr>';
                 }
-                $col->features = new Text($featuresHtml, 'div', ['div' => ['margin' => '0 0 20px 0']]);
+                $col->features = RawHtml::make(
+                    '<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;width:100%;margin:0 0 20px 0;">'
+                    . '<tbody>' . $featRows . '</tbody>'
+                    . '</table>'
+                );
             }
 
-            // CTA button
+            // CTA button — width matches the content area (column width after padding)
             if (!empty($tier['cta_url'])) {
                 $btnBg    = $highlighted ? '#ffffff'  : $primary;
                 $btnColor = $highlighted ? $primary   : '#ffffff';
@@ -138,6 +157,7 @@ class PricingTable
                     $tier['cta_url'],
                     bgColor:   $btnBg,
                     textColor: $btnColor,
+                    width:     $w,
                     sheet:     $sheet,
                 );
             }
@@ -147,6 +167,10 @@ class PricingTable
         }
 
         $c->rmargin = deepclone($marginCol);
+
+        if ($responsive !== '') {
+            $c->setResponsive($responsive);
+        }
 
         return $c;
     }

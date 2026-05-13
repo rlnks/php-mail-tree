@@ -122,16 +122,23 @@ class HtmlImporter
             if ($f && !in_array($f, ['0', '1px', '0px'], true)) { $baseFontSize = $f; break; }
         }
 
-        // Container width: widest table
+        // Container width: prefer pixel-width tables, fall back to largest image
         $containerWidth = 600;
         $maxW = 0;
         foreach ($this->xpath->query('//table') as $tbl) {
-            $wAttr = (int) $this->attr($tbl, 'width');
-            $wCss  = (int) preg_replace('/[^0-9]/', '', $this->cssValue($this->attr($tbl, 'style'), 'max-width') ?: '0');
-            $w = max($wAttr, $wCss);
+            $w = $this->tablePixelWidth($tbl);
             if ($w > $maxW) { $maxW = $w; }
         }
-        if ($maxW >= 400 && $maxW <= 900) { $containerWidth = $maxW; }
+        if ($maxW >= 400 && $maxW <= 900) {
+            $containerWidth = $maxW;
+        } else {
+            // Percentage-based layout: infer from widest image (usually = container width)
+            foreach ($this->xpath->query('//img') as $img) {
+                $w = (int) $this->attr($img, 'width');
+                if ($w >= 400 && $w <= 900 && $w > $maxW) { $maxW = $w; }
+            }
+            if ($maxW >= 400 && $maxW <= 900) { $containerWidth = $maxW; }
+        }
 
         $this->theme = [
             'bgColor'        => $bodyBg       ?: '#f0f0f0',
@@ -153,28 +160,151 @@ class HtmlImporter
             return;
         }
 
-        // Get direct-child <tr> elements (children of <tbody> or direct)
-        $rows = [];
         foreach ($this->xpath->query('./tbody/tr|./tr', $container) as $tr) {
-            $rows[] = $tr;
+            $this->parseRowIntoSections($tr);
+        }
+    }
+
+    /**
+     * Parse a TR, potentially yielding multiple sections when the row is a
+     * structural wrapper. Handles three wrapper patterns:
+     *
+     *   1. Single TD → multiple sibling tables → recurse into each table's rows
+     *   2. Single TD → single table with multiple rows → recurse into each row
+     *   3. Single TD → single table with single row → recurse if that row also wraps
+     *
+     * Falls through to parseRow() only for actual content rows.
+     */
+    private function parseRowIntoSections(\DOMNode $tr, int $depth = 0): void
+    {
+        if ($depth > 12) { return; }
+
+        $tds = [];
+        foreach ($tr->childNodes as $child) {
+            if ($child->nodeName === 'td') { $tds[] = $child; }
+        }
+        if (empty($tds)) { return; }
+
+        $contentTds = array_values(array_filter($tds, fn($td) => !$this->isMarginColumn($td)));
+        if (empty($contentTds)) { return; }
+
+        // Multi-TD → content row (columns layout)
+        if (count($contentTds) > 1) {
+            $section = $this->parseRow($tr);
+            if ($section !== null) { $this->sections[] = $section; }
+            return;
         }
 
-        foreach ($rows as $tr) {
-            $section = $this->parseRow($tr);
-            if ($section !== null) {
-                $this->sections[] = $section;
+        // Single content TD — collect direct child tables
+        $td = $contentTds[0];
+        $directTables = $this->directChildTables($td);
+
+        // Pattern 1: multiple sibling tables → each is a structural block
+        if (count($directTables) > 1) {
+            foreach ($directTables as $childTable) {
+                foreach ($this->xpath->query('./tbody/tr|./tr', $childTable) as $innerTr) {
+                    $this->parseRowIntoSections($innerTr, $depth + 1);
+                }
+            }
+            return;
+        }
+
+        // Pattern 2 & 3: exactly one direct child table
+        if (count($directTables) === 1) {
+            $innerTable = $directTables[0];
+            $innerRows  = $this->xpath->query('./tbody/tr|./tr', $innerTable);
+
+            // Pattern 2: multi-row table → structural wrapper
+            if ($innerRows->length > 1) {
+                foreach ($innerRows as $innerTr) {
+                    $this->parseRowIntoSections($innerTr, $depth + 1);
+                }
+                return;
+            }
+
+            // Pattern 3: single-row table — recurse if its single content TD also
+            // has direct child tables (another wrapper level)
+            if ($innerRows->length === 1) {
+                $innerTr   = $innerRows->item(0);
+                $innerTds  = [];
+                foreach ($innerTr->childNodes as $c) {
+                    if ($c->nodeName === 'td' && !$this->isMarginColumn($c)) {
+                        $innerTds[] = $c;
+                    }
+                }
+                if (count($innerTds) === 1) {
+                    $deepTables = $this->directChildTables($innerTds[0]);
+                    if (!empty($deepTables)) {
+                        $this->parseRowIntoSections($innerTr, $depth + 1);
+                        return;
+                    }
+                } elseif (count($innerTds) > 1) {
+                    // Multi-TD inner row
+                    $this->parseRowIntoSections($innerTr, $depth + 1);
+                    return;
+                }
             }
         }
+
+        // No wrapper pattern matched → this is a content row
+        $section = $this->parseRow($tr);
+        if ($section !== null) { $this->sections[] = $section; }
+    }
+
+    /**
+     * Returns direct child <table> elements of a node (skipping text/comment nodes
+     * and one level of innocuous wrapper elements like <div>, <center>).
+     *
+     * @return \DOMNode[]
+     */
+    private function directChildTables(\DOMNode $node): array
+    {
+        $tables = [];
+        foreach ($node->childNodes as $child) {
+            if ($child->nodeName === 'table') {
+                $tables[] = $child;
+            } elseif (in_array($child->nodeName, ['div', 'center', 'span'], true)) {
+                foreach ($child->childNodes as $gc) {
+                    if ($gc->nodeName === 'table') { $tables[] = $gc; }
+                }
+            }
+        }
+        return $tables;
     }
 
     private function findOuterContainer(): ?\DOMNode
     {
         $cw = $this->theme['containerWidth'];
+
+        // Strategy 1: pixel-width table at shallow depth (≤ 3) with substantial content
+        $totalImgs = $this->xpath->query('//img')->length;
         foreach ($this->xpath->query('//table') as $tbl) {
-            $w = (int) $this->attr($tbl, 'width')
-                ?: (int) preg_replace('/[^0-9]/', '', $this->cssValue($this->attr($tbl, 'style'), 'max-width') ?: '0');
-            if ($w === $cw || abs($w - $cw) <= 5) { return $tbl; }
+            $w = $this->tablePixelWidth($tbl);
+            if ($w <= 0 || abs($w - $cw) > 10) { continue; }
+            if ($this->nodeDepth($tbl, 'table') > 3) { continue; }
+            $tblImgs  = $this->xpath->query('.//img', $tbl)->length;
+            $tblText  = strlen(trim(str_replace("\xc2\xa0", '', $tbl->textContent ?? '')));
+            $hasContent = ($totalImgs > 0 && $tblImgs >= (int) ceil($totalImgs * 0.6))
+                || $tblText > 100;
+            if ($hasContent) { return $tbl; }
         }
+
+        // Strategy 2: percentage-based layout — find the shallowest table that
+        // contains the most images (highest score = most images at lowest depth)
+        $imgs = $this->xpath->query('//img');
+        if ($imgs->length > 0) {
+            $best      = null;
+            $bestScore = -1;
+            foreach ($this->xpath->query('//table') as $tbl) {
+                $imgCount = $this->xpath->query('.//img', $tbl)->length;
+                if ($imgCount === 0) { continue; }
+                $depth = $this->nodeDepth($tbl, 'table');
+                $score = $imgCount * 100 - $depth * 10;
+                if ($score > $bestScore) { $bestScore = $score; $best = $tbl; }
+            }
+            if ($best !== null) { return $best; }
+        }
+
         return $this->xpath->query('//table')->item(0);
     }
 
@@ -474,7 +604,7 @@ class HtmlImporter
         }
 
         // Skeleton + assembly code
-        $skelCode = "\$email = new EmailDocument(\$sheet->emailStyle());\n";
+        $skelCode = "\$email = new EmailDocument(\$sheet);\n";
         $skelCode .= "\$email->body = new Body();\n";
         $skelCode .= "\$email->body->setCSS(\$sheet->responsiveCss());\n\n";
 
@@ -555,18 +685,18 @@ class HtmlImporter
                 return ["\$email->body->{$name} = Divider::make(sheet: \$sheet{$arg});\n", ''];
 
             case 'section':
-                $skel = "\$email->body->{$name} = Section::make(sheet: \$sheet);\n";
-                $asm  = $this->generateStyleSetters("\$email->body->{$name}", $section['containerStyle'] ?? []);
-                $asm .= $this->generateStyleSetters("\$email->body->{$name}->body", ['column' => $section['columnStyle']['column'] ?? []]);
-                $iIdx = 0;
+                $skel     = "\$email->body->{$name} = Section::make(sheet: \$sheet);\n";
+                $asm      = $this->generateStyleSetters("\$email->body->{$name}", $section['containerStyle'] ?? []);
+                $asm     .= $this->generateStyleSetters("\$email->body->{$name}->body", ['column' => $section['columnStyle']['column'] ?? []]);
+                $counters = [];
                 foreach ($section['content'] as $item) {
-                    $iName = 'item' . (++$iIdx);
-                    $asm .= $this->generateItemAssignment("\$email->body->{$name}->body", $iName, $item, $imgVarMap);
+                    $iName = $this->semanticName($item, $counters);
+                    $asm  .= $this->generateItemAssignment("\$email->body->{$name}->body", $iName, $item, $imgVarMap);
                 }
                 return [$skel, $asm];
 
             case 'columns':
-                $n     = $section['columns'];
+                $n      = $section['columns'];
                 $preset = match ($n) { 2 => 'TwoColumn', 3 => 'ThreeColumn', default => "NColumn::make({$n}," };
                 $call   = in_array($n, [2, 3]) ? "{$preset}::make(sheet: \$sheet)" : "NColumn::make({$n}, sheet: \$sheet)";
                 $skel   = "\$email->body->{$name} = {$call};\n";
@@ -575,12 +705,12 @@ class HtmlImporter
                     $asm .= $this->generateStyleSetters("\$email->body->{$name}", $section['textStyle']);
                 }
                 foreach (($section['cols'] ?? []) as $ci => $col) {
-                    $cName = 'col' . ($ci + 1);
-                    $asm  .= $this->generateStyleSetters("\$email->body->{$name}->{$cName}", $col['columnStyle'] ?? []);
-                    $iIdx  = 0;
+                    $cName    = 'col' . ($ci + 1);
+                    $asm     .= $this->generateStyleSetters("\$email->body->{$name}->{$cName}", $col['columnStyle'] ?? []);
+                    $counters  = [];
                     foreach ($col['content'] as $item) {
-                        $iName = 'item' . (++$iIdx);
-                        $asm .= $this->generateItemAssignment("\$email->body->{$name}->{$cName}", $iName, $item, $imgVarMap);
+                        $iName = $this->semanticName($item, $counters);
+                        $asm  .= $this->generateItemAssignment("\$email->body->{$name}->{$cName}", $iName, $item, $imgVarMap);
                     }
                 }
                 return [$skel, $asm];
@@ -588,6 +718,44 @@ class HtmlImporter
             default:
                 return ["// TODO: {$name} (type: {$type})\n", ''];
         }
+    }
+
+    /**
+     * Returns a type-specific property name for a content item,
+     * incrementing a per-type counter stored in $counters.
+     *
+     * Mapping:
+     *   image                    → img1, img2, …
+     *   linked_image / link      → link1, link2, …
+     *   button                   → btn1, btn2, …
+     *   text (p/div)             → para1, para2, …
+     *   list                     → list1, list2, …
+     *   divider                  → divider1, divider2, …
+     *   heading h1               → title1, title2, …
+     *   heading h2               → subtitle1, subtitle2, …
+     *   heading h3               → subsubtitle1, subsubtitle2, …
+     *   heading h4–h6 / other    → heading1, heading2, …
+     */
+    private function semanticName(array $item, array &$counters): string
+    {
+        $type   = $item['type'] ?? '';
+        $prefix = match ($type) {
+            'image'                  => 'img',
+            'linked_image', 'link'   => 'link',
+            'button'                 => 'btn',
+            'text'                   => 'para',
+            'list'                   => 'list',
+            'divider'                => 'divider',
+            'heading'                => match ($item['tag'] ?? '') {
+                'h1'    => 'title',
+                'h2'    => 'subtitle',
+                'h3'    => 'subsubtitle',
+                default => 'heading',
+            },
+            default => 'item',
+        };
+        $counters[$prefix] = ($counters[$prefix] ?? 0) + 1;
+        return $prefix . $counters[$prefix];
     }
 
     private function generateStyleSetters(string $target, array $style): string
@@ -638,6 +806,37 @@ class HtmlImporter
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+
+    /** Returns a table's pixel width, or 0 for percentage/unknown widths. */
+    private function tablePixelWidth(\DOMNode $tbl): int
+    {
+        $wAttr = $this->attr($tbl, 'width');
+        if (str_contains($wAttr, '%')) { return 0; }
+        $w = (int) $wAttr;
+        if ($w === 0) {
+            $style = $this->attr($tbl, 'style');
+            foreach (['width', 'max-width'] as $prop) {
+                $val = $this->cssValue($style, $prop);
+                if ($val !== '' && !str_contains($val, '%')) {
+                    $px = (int) preg_replace('/[^0-9]/', '', $val);
+                    if ($px > 0) { $w = $px; break; }
+                }
+            }
+        }
+        return $w;
+    }
+
+    /** Count how many ancestors of $node have the given tag name. */
+    private function nodeDepth(\DOMNode $node, string $tagName): int
+    {
+        $depth = 0;
+        $p = $node->parentNode;
+        while ($p) {
+            if ($p->nodeName === $tagName) { $depth++; }
+            $p = $p->parentNode;
+        }
+        return $depth;
+    }
 
     private function attr(\DOMNode $node, string $attr): string
     {

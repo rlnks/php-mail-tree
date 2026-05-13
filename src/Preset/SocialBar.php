@@ -55,6 +55,7 @@ class SocialBar implements Renderable
         string      $align       = 'center',
         ?StyleSheet $sheet       = null,
     ): static {
+        $sheet ??= StyleSheet::getDefault();
         return new static(
             links:       $links,
             iconSize:    $iconSize,
@@ -95,7 +96,7 @@ class SocialBar implements Renderable
 
             $html .= "\n{$t2}<td style=\"{$tdStyle}\">";
             $html .= "\n{$t3}<a href=\"" . htmlspecialchars($url, ENT_QUOTES) . "\" target=\"_blank\" style=\"{$aStyle}\">";
-            $html .= "\n{$t3}<img src=\"{$iconSrc}\" alt=\"" . htmlspecialchars($alt, ENT_QUOTES) . "\" width=\"{$size}\" height=\"{$size}\" style=\"{$imgStyle}\">";
+            $html .= "\n{$t3}<img src=\"{$iconSrc}\" alt=\"" . htmlspecialchars($alt, ENT_QUOTES) . "\" width=\"{$size}\" height=\"{$size}\" border=\"0\" style=\"{$imgStyle}\" moz-do-not-send=\"true\">";
             $html .= "\n{$t3}</a>";
             $html .= "\n{$t2}</td>";
         }

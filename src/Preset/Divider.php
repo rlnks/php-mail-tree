@@ -24,14 +24,18 @@ use Rlnks\MailTree\Text;
 class Divider
 {
     public static function make(
-        string      $color    = '',
-        string      $width    = '1px',
-        string      $paddingY = '0',
-        ?StyleSheet $sheet    = null,
+        string      $color      = '',
+        string      $width      = '1px',
+        string      $paddingY   = '0',
+        ?StyleSheet $sheet      = null,
+        string      $responsive = '',
     ): Container {
+        $sheet ??= StyleSheet::getDefault();
         $color = $color ?: ($sheet?->borderColor() ?? '#dddddd');
+        $cw    = $sheet?->containerWidth() ?? 600;
 
         $colStyle = [
+            'width'                => '100%',
             'border-bottom'        => "{$width} solid {$color}",
             'height'               => '0',
             'font-size'            => '0',
@@ -45,13 +49,21 @@ class Divider
 
         $c = new Container([
             'container' => [
+                'width'            => '100%',
+                'max-width'        => "{$cw}px",
                 'border'           => 'none',
                 'background-color' => 'transparent',
                 'border-collapse'  => 'collapse',
+                'mso-table-lspace' => '0pt',
+                'mso-table-rspace' => '0pt',
             ],
         ]);
         $c->col = new Column(['column' => $colStyle]);
         $c->col->space = new Text('&nbsp;');
+
+        if ($responsive !== '') {
+            $c->setResponsive($responsive);
+        }
 
         return $c;
     }

@@ -20,20 +20,31 @@ use Rlnks\MailTree\StyleSheet;
  *   - border:0 neutralizes link-border in old email clients.
  *   - moz-do-not-send="true" (already set in Image::build) prevents Thunderbird
  *     from attaching the image as a file.
- *   - Wrap with MSO conditional so Outlook centres correctly at fixed width.
+ *
+ * Tree structure is always: col → link (Anchor) → img (Image).
+ * When href is empty the Anchor renders transparently (no <a> wrapper).
+ * This means src, alt, and href can all be set after make():
  *
  * Usage:
- *   $banner = FullWidthImage::make('https://…/hero.jpg', 'Hero banner');
- *   $banner = FullWidthImage::make($src, $alt, href: 'https://…', sheet: $sheet);
+ *   // Inline:
+ *   $banner = FullWidthImage::make($src, $alt, href: $url);
+ *
+ *   // Skeleton-first (declare structure, fill content later):
+ *   $email->body->hero = FullWidthImage::make();
+ *   // … later …
+ *   $email->body->hero->col->link->setLink($heroUrl);
+ *   $email->body->hero->col->link->img->setSrc($heroSrc, $heroAlt);
  */
 class FullWidthImage
 {
     public static function make(
-        string      $src,
-        string      $alt   = '',
-        string      $href  = '',
-        ?StyleSheet $sheet = null,
+        string      $src   = '',
+        string      $alt        = '',
+        string      $href       = '',
+        ?StyleSheet $sheet      = null,
+        string      $responsive = '',
     ): Container {
+        $sheet ??= StyleSheet::getDefault();
         $containerWidth = $sheet?->containerWidth() ?? 600;
 
         $c = new Container([
@@ -61,11 +72,13 @@ class FullWidthImage
         $col = new Column();
         $c->col = $col;
 
-        if ($href !== '') {
-            $col->link = new Anchor($href, ['a' => ['border' => '0', 'display' => 'block']]);
-            $col->link->img = new Image($src, $alt, $imgStyle);
-        } else {
-            $col->img = new Image($src, $alt, $imgStyle);
+        // Always create the link→img subtree so the structure is consistent
+        // whether or not a link is used. Anchor with empty href renders transparently.
+        $col->link      = new Anchor($href, ['a' => ['border' => '0', 'display' => 'block']]);
+        $col->link->img = new Image($src, $alt, $imgStyle);
+
+        if ($responsive !== '') {
+            $c->setResponsive($responsive);
         }
 
         return $c;

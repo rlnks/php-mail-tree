@@ -48,7 +48,9 @@ class Quote
         int         $containerWidth = 0,
         int         $marginWidth    = 0,
         ?StyleSheet $sheet          = null,
+        string      $responsive     = '',
     ): Container {
+        $sheet ??= StyleSheet::getDefault();
         $cw    = $containerWidth ?: ($sheet?->containerWidth() ?? 600);
         $mw    = $marginWidth    ?: ($sheet?->marginWidth()    ?? 30);
         $bw    = $cw - $mw * 2;
@@ -60,7 +62,6 @@ class Quote
             'container' => [
                 'width'            => "{$cw}px",
                 'max-width'        => "{$cw}px",
-                'background-color' => $sheet?->containerBg() ?? '#ffffff',
                 'border-collapse'  => 'collapse',
                 'table-layout'     => 'fixed',
                 'mso-table-lspace' => '0pt',
@@ -72,11 +73,15 @@ class Quote
         $margin = new Column(['column' => ['width' => "{$mw}px"]]);
         $margin->space = new Text('&nbsp;');
 
+        // Subtract left-padding (20px) + border-left (4px) from body width
+        // so the total rendered cell width stays within the container.
+        $bodyW = $bw - 24;
+
         $c->lmargin = $margin;
         $c->body    = new Column([
             'column' => [
-                'width'         => "{$bw}px",
-                'max-width'     => "{$bw}px",
+                'width'         => "{$bodyW}px",
+                'max-width'     => "{$bodyW}px",
                 'padding'       => '20px 0 20px 20px',
                 'border-left'   => "4px solid {$accent}",
             ],
@@ -85,9 +90,9 @@ class Quote
 
         $c->body->quote = new Text(
             $text,
-            'div',
+            'p',
             [
-                'div' => [
+                'p' => [
                     'color'       => $qColor,
                     'font-style'  => 'italic',
                     'font-size'   => '17px',
@@ -117,9 +122,9 @@ class Quote
 
         $c->body->attribution = new Text(
             $attribution,
-            'div',
+            'p',
             [
-                'div' => [
+                'p' => [
                     'color'       => $attrColor,
                     'font-size'   => '13px',
                     'font-weight' => 'bold',
@@ -129,6 +134,10 @@ class Quote
         );
 
         $c->rmargin = deepclone($margin);
+
+        if ($responsive !== '') {
+            $c->setResponsive($responsive);
+        }
 
         return $c;
     }

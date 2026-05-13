@@ -65,6 +65,7 @@ class DataTable implements Renderable
         string      $cellPadding = '10px 12px',
         ?StyleSheet $sheet       = null,
     ): static {
+        $sheet ??= StyleSheet::getDefault();
         return new static(
             headers:     $headers,
             rows:        $rows,
@@ -99,7 +100,7 @@ class DataTable implements Renderable
             'font-size:' . $this->fontSize,
         ]);
 
-        $html = "\n{$t}<table role=\"presentation\" width=\"100%\" style=\"{$tableStyle}\" border=\"0\" cellspacing=\"0\" cellpadding=\"0\">";
+        $html = "\n{$t}<table role=\"presentation\" class=\"datatable\" width=\"100%\" style=\"{$tableStyle}\" border=\"0\" cellspacing=\"0\" cellpadding=\"0\">";
 
         // Header
         if ($this->headers) {

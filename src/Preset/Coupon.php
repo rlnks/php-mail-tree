@@ -4,6 +4,7 @@ namespace Rlnks\MailTree\Preset;
 
 use Rlnks\MailTree\Column;
 use Rlnks\MailTree\Container;
+use Rlnks\MailTree\RawHtml;
 use Rlnks\MailTree\StyleSheet;
 use Rlnks\MailTree\Text;
 
@@ -44,18 +45,24 @@ class Coupon
         int         $containerWidth = 0,
         int         $marginWidth    = 0,
         ?StyleSheet $sheet          = null,
+        string      $responsive     = '',
     ): Container {
+        $sheet ??= StyleSheet::getDefault();
         $cw      = $containerWidth ?: ($sheet?->containerWidth() ?? 600);
         $mw      = $marginWidth    ?: ($sheet?->marginWidth()    ?? 30);
-        $bw      = $cw - $mw * 2;
         $border  = $borderColor ?: ($sheet?->borderColor()   ?? '#bbbbbb');
         $primary = $codeColor   ?: ($sheet?->primaryColor()  ?? '#003366');
         $text    = $textColor   ?: ($sheet?->textColor()     ?? '#444444');
 
+        // A 2px dashed border adds 4px (2px each side) to the rendered width.
+        // Subtract it from the declared container width to stay within $cw.
+        $outerW = $cw - 4;
+        $bw     = $outerW - $mw * 2;
+
         $c = new Container([
             'container' => [
-                'width'            => "{$cw}px",
-                'max-width'        => "{$cw}px",
+                'width'            => "{$outerW}px",
+                'max-width'        => "{$outerW}px",
                 'background-color' => $bgColor,
                 'border'           => "2px dashed {$border}",
                 'border-collapse'  => 'collapse',
@@ -81,8 +88,8 @@ class Coupon
         $c->body->setClass('section-body');
 
         if ($description !== '') {
-            $c->body->description = new Text($description, 'div', [
-                'div' => [
+            $c->body->description = new Text($description, 'p', [
+                'p' => [
                     'color'       => $text,
                     'font-size'   => '14px',
                     'margin'      => '0 0 14px 0',
@@ -91,25 +98,28 @@ class Coupon
             ]);
         }
 
-        $c->body->code = new Text($code, 'div', [
-            'div' => [
-                'color'           => $primary,
-                'font-size'       => '28px',
-                'font-weight'     => 'bold',
-                'letter-spacing'  => '4px',
-                'font-family'     => "'Courier New', Courier, monospace",
-                'background-color'=> '#ffffff',
-                'border'          => "1px solid {$border}",
-                'padding'         => '10px 20px',
-                'display'         => 'inline-block',
-                'margin'          => '0',
-                'text-align'      => 'center',
-            ],
+        // Use a centered table instead of display:inline-block on a div —
+        // inline-block on div is unreliable in Outlook.
+        $codeStyle = implode(';', [
+            'color:' . $primary,
+            'font-size:28px',
+            'font-weight:bold',
+            'letter-spacing:4px',
+            "font-family:'Courier New', Courier, monospace",
+            'background-color:#ffffff',
+            'border:1px solid ' . $border,
+            'padding:10px 20px',
+            'text-align:center',
         ]);
+        $c->body->code = RawHtml::make(
+            '<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="border-collapse:collapse;margin:0 auto 0;">'
+            . '<tbody><tr><td style="' . $codeStyle . '">' . htmlspecialchars($code, ENT_QUOTES) . '</td></tr></tbody>'
+            . '</table>'
+        );
 
         if ($expiry !== '') {
-            $c->body->expiry = new Text($expiry, 'div', [
-                'div' => [
+            $c->body->expiry = new Text($expiry, 'p', [
+                'p' => [
                     'color'       => '#888888',
                     'font-size'   => '12px',
                     'margin'      => '12px 0 0 0',
@@ -119,6 +129,10 @@ class Coupon
         }
 
         $c->rmargin = deepclone($margin);
+
+        if ($responsive !== '') {
+            $c->setResponsive($responsive);
+        }
 
         return $c;
     }

@@ -18,8 +18,13 @@ namespace Rlnks\MailTree;
  */
 class StyleSheet
 {
+    private static ?self $default = null;
+
     private array $theme;
-    private array $registry = [];
+    private array $registry        = [];
+    private array $baseStyles      = [];
+    private array $responsiveRules = [];
+    private array $webFonts        = [];
 
     private const DEFAULTS = [
         'primaryColor'   => '#333333',
@@ -33,6 +38,7 @@ class StyleSheet
         'containerWidth' => 600,
         'marginWidth'    => 30,
         'spacerHeight'   => '20px',
+        'spacerBg'       => '',             // empty = inherit containerBg
         'buttonRadius'   => '4px',
         'buttonHeight'   => 50,
         'buttonWidth'    => 200,
@@ -47,7 +53,34 @@ class StyleSheet
 
     public function __construct(array $theme = [])
     {
-        $this->theme = array_replace(self::DEFAULTS, $theme);
+        $tokens     = [];
+        $baseStyles = [];
+        $registry   = [];
+
+        foreach ($theme as $key => $value) {
+            if (!is_array($value)) {
+                $tokens[$key] = $value;
+            } elseif ($this->isNestedStyleArray($value)) {
+                $registry[$key] = $value;   // 'header' => ['container' => [...]]
+            } else {
+                $baseStyles[$key] = $value; // 'h1' => ['font-size' => '22px']
+            }
+        }
+
+        $this->theme      = array_replace(self::DEFAULTS, $tokens);
+        $this->baseStyles = $baseStyles;
+        $this->registry   = $registry;
+    }
+
+    /** Returns true when at least one value in the array is itself an array (named-style shape). */
+    private function isNestedStyleArray(array $arr): bool
+    {
+        foreach ($arr as $v) {
+            if (is_array($v)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ── Theme variable access ─────────────────────────────────────────────────
@@ -61,11 +94,27 @@ class StyleSheet
     public function textColor(): string     { return $this->theme['textColor']; }
     public function bgColor(): string       { return $this->theme['bgColor']; }
     public function containerBg(): string   { return $this->theme['containerBg']; }
+    public function spacerBg(): string      { return $this->theme['spacerBg'] ?: $this->theme['containerBg']; }
     public function borderColor(): string   { return $this->theme['borderColor']; }
     public function fontFamily(): string    { return $this->theme['fontFamily']; }
     public function baseFontSize(): string  { return $this->theme['baseFontSize']; }
     public function containerWidth(): int   { return (int) $this->theme['containerWidth']; }
     public function marginWidth(): int      { return (int) $this->theme['marginWidth']; }
+
+    /**
+     * Returns the highlight style as a ready-to-use inline CSS string.
+     * Pass to Translator::setHighlightStyle() so **...** in translation values
+     * is rendered with the same style as in Text::build().
+     */
+    public function highlightInlineStyle(): string
+    {
+        $styles = $this->emailStyle()['highlight'] ?? [];
+        return implode(';', array_map(
+            fn(string $prop, mixed $val): string => $prop . ':' . $val,
+            array_keys($styles),
+            $styles,
+        ));
+    }
 
     /** Width available inside the margin columns */
     public function bodyWidth(): int
@@ -115,11 +164,21 @@ class StyleSheet
             'div' => [
                 'margin' => 0,
             ],
+            'p' => [
+                'margin' => 0,
+            ],
             'a' => [
                 'color'           => $this->theme['primaryColor'],
                 'text-decoration' => 'none',
             ],
-        ], $overrides);
+            'container' => [
+                'background-color' => $this->theme['containerBg'],
+            ],
+            'highlight' => [
+                'color'       => $this->theme['primaryColor'],
+                'font-weight' => 'bold',
+            ],
+        ], $this->baseStyles, $overrides);
     }
 
     /**
@@ -308,66 +367,208 @@ class StyleSheet
      */
     public function responsiveCss(int $breakpoint = 620, bool $darkMode = false): string
     {
-        $bp = $breakpoint;
-        $cw = $this->containerWidth();
+        $bp  = $breakpoint;
+        $css = <<<CSS
+/* ── Client resets ──────────────────────────────────── */
+body, #MessageViewBody, #MessageWebViewDiv {
+  margin: 0;
+  padding: 0;
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+.ExternalClass { width: 100%; }
+.ExternalClass,
+.ExternalClass p,
+.ExternalClass span,
+.ExternalClass font,
+.ExternalClass td,
+.ExternalClass div { line-height: 100%; }
+table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+img { -ms-interpolation-mode: bicubic; border: 0; display: block; }
+a[x-apple-data-detectors] {
+  color: inherit !important;
+  text-decoration: none !important;
+  font-size: inherit !important;
+  font-family: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+}
+u + .body a {
+  color: inherit;
+  text-decoration: none;
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+}
+#MessageViewBody a { color: inherit; text-decoration: none; }
 
-        return implode("\n", [
-            '/* ── Client resets ──────────────────────────────────── */',
-            'body, #MessageViewBody, #MessageWebViewDiv {',
-            '  margin: 0; padding: 0;',
-            '  -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;',
-            '}',
-            /* Outlook.com wrapping div */
-            '.ExternalClass { width: 100%; }',
-            '.ExternalClass, .ExternalClass p, .ExternalClass span,',
-            '.ExternalClass font, .ExternalClass td, .ExternalClass div { line-height: 100%; }',
-            /* Global table reset */
-            'table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }',
-            /* Image resets */
-            'img { -ms-interpolation-mode: bicubic; border: 0; display: block; }',
-            /* Kill auto-detected blue links (Apple Mail, iOS) */
-            'a[x-apple-data-detectors] {',
-            '  color: inherit !important; text-decoration: none !important;',
-            '  font-size: inherit !important; font-family: inherit !important;',
-            '  font-weight: inherit !important; line-height: inherit !important;',
-            '}',
-            /* Kill Gmail blue links (u+ targets Gmail's generated wrapper) */
-            'u + .body a { color: inherit; text-decoration: none; font-size: inherit;',
-            '  font-family: inherit; font-weight: inherit; line-height: inherit; }',
-            /* Samsung Mail */
-            '#MessageViewBody a { color: inherit; text-decoration: none; }',
-            '',
-            '/* ── Responsive ─────────────────────────────────────── */',
-            "@media only screen and (max-width: {$bp}px) {",
-            "  /* Full-width containers */",
-            '  table[class~="devicewidth"] { width: 100% !important; max-width: 100% !important; }',
-            '  td[class~="section-body"]   { width: 100% !important; max-width: 100% !important; }',
-            '',
-            "  /* N-column → stack (col-2 through col-5) */",
-            '  td[class~="col-2"], td[class~="col-3"], td[class~="col-4"], td[class~="col-5"] {',
-            '    display: block !important;',
-            '    width: 100% !important; max-width: 100% !important;',
-            '    box-sizing: border-box !important;',
-            '  }',
-            '',
-            "  /* Fluid images */",
-            '  img { max-width: 100% !important; height: auto !important; }',
-            '',
-            "  /* Increase base font sizes for readability */",
-            '  td[class~="section-body"] { font-size: 16px !important; line-height: 160% !important; }',
-            '',
-            "  /* Visibility utilities */",
-            '  table[class~="hidden-sm"] {',
-            '    display: none !important; max-height: 0 !important;',
-            '    overflow: hidden !important; mso-hide: all !important;',
-            '  }',
-            '  table[class~="show-sm"] {',
-            '    display: block !important; max-height: none !important;',
-            '    overflow: visible !important; width: 100% !important;',
-            '  }',
-            '}',
-            '',
-        ]) . ($darkMode ? "\n" . $this->darkModeCss() : '');
+/* ── Responsive ─────────────────────────────────────── */
+@media only screen and (max-width: {$bp}px) {
+
+  /* Full-width containers */
+  table[class~="devicewidth"] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  td[class~="section-body"] {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Reset all fixed-width cells to auto — prevents horizontal overflow */
+  table[class~="devicewidth"] > tbody > tr > td {
+    width: auto !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  /* Keep margin spacers narrow on mobile */
+  table[class~="devicewidth"] > tbody > tr > td[width="30"] {
+    width: 16px !important;
+    max-width: 16px !important;
+  }
+
+  /* N-column → stack (col-2 through col-5) */
+  td[class~="col-2"],
+  td[class~="col-3"],
+  td[class~="col-4"],
+  td[class~="col-5"] {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* DataTable — reduce padding and font-size on narrow viewports */
+  table[class~="datatable"] th,
+  table[class~="datatable"] td {
+    padding: 8px 6px !important;
+    font-size: 13px !important;
+  }
+  table[class~="datatable"] th { font-size: 12px !important; }
+
+  /* Fluid images */
+  img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Increase base font size for readability */
+  td[class~="section-body"] {
+    font-size: 16px !important;
+    line-height: 160% !important;
+  }
+
+  /* Visibility utilities */
+  table[class~="hidden-sm"] {
+    display: none !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    mso-hide: all !important;
+  }
+  table[class~="show-sm"] {
+    display: block !important;
+    max-height: none !important;
+    overflow: visible !important;
+    width: 100% !important;
+  }
+CSS;
+
+        if ($this->responsiveRules !== []) {
+            $css .= "\n\n  /* ── Custom responsive rules ───────────────────── */";
+            foreach ($this->responsiveRules as $selector => $props) {
+                $css .= "\n  {$selector} {";
+                foreach ($props as $prop => $value) {
+                    $css .= "\n    {$prop}: {$value};";
+                }
+                $css .= "\n  }";
+            }
+        }
+
+        $css .= "\n\n}";
+
+        return $css . ($darkMode ? "\n\n" . $this->darkModeCss() : '');
+    }
+
+    /**
+     * Register a custom rule to be emitted inside the responsive @media block.
+     *
+     * Example — zero out right padding on mobile:
+     *   $sheet->addResponsiveRule('td[class~="no-pad-right"]', ['padding-right' => '0 !important']);
+     *
+     * Add the matching inline style on the element and assign the class:
+     *   $col->setStyle(['column' => ['padding-right' => '20px']]);
+     *   $col->setClass('no-pad-right');
+     */
+    public function addResponsiveRule(string $selector, array $properties): static
+    {
+        $this->responsiveRules[$selector] = array_merge($this->responsiveRules[$selector] ?? [], $properties);
+        return $this;
+    }
+
+    /**
+     * Register a web font URL to be loaded in <head> and via @import in <style>.
+     *
+     * For Google Fonts URLs, preconnect tags are generated automatically by
+     * webFontLinks(). If $fontName is provided it is prepended to fontFamily in
+     * the theme so every Text / Section element inherits it immediately — no
+     * further style changes needed.
+     *
+     * Loading strategy (automatically applied via EmailDocument):
+     *   • <link rel="preconnect"> tags in <head> — speed up Google Fonts lookup
+     *   • <link rel="stylesheet"> tag in <head> — the actual font load
+     * This covers Apple Mail, iOS Mail, Samsung Mail, and Outlook.com webmail.
+     * Outlook on Windows ignores web fonts; it uses the font-family fallback stack.
+     * Gmail ignores web fonts regardless of loading method.
+     *
+     * Note: @import inside <style> is intentionally omitted — it is silently
+     * ignored by Gmail and Outlook, so <link> alone provides identical coverage.
+     *
+     * Usage:
+     *   $sheet->addWebFont(
+     *       'https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap',
+     *       'Open Sans',
+     *   );
+     *   $email = new EmailDocument($sheet);   // <link> tags auto-injected in <head>
+     */
+    public function addWebFont(string $url, string $fontName = ''): static
+    {
+        $this->webFonts[] = ['url' => $url, 'name' => $fontName];
+
+        if ($fontName !== '' && !str_contains($this->theme['fontFamily'], $fontName)) {
+            $this->theme['fontFamily'] = $fontName . ', ' . $this->theme['fontFamily'];
+        }
+
+        return $this;
+    }
+
+    /**
+     * Returns HTML <link> tags for all registered web fonts.
+     *
+     * For Google Fonts URLs, preconnect tags for fonts.googleapis.com and
+     * fonts.gstatic.com (with crossorigin) are prepended automatically.
+     *
+     * Inject the output into <head> via EmailDocument — this is done
+     * automatically when you pass the StyleSheet to new EmailDocument($sheet).
+     */
+    public function webFontLinks(): string
+    {
+        if (empty($this->webFonts)) { return ''; }
+
+        $lines          = [];
+        $preconnectDone = false;
+
+        foreach ($this->webFonts as $font) {
+            $url = $font['url'];
+            if (!$preconnectDone && str_contains($url, 'fonts.googleapis.com')) {
+                $lines[]        = '<link rel="preconnect" href="https://fonts.googleapis.com">';
+                $lines[]        = '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>';
+                $preconnectDone = true;
+            }
+            $lines[] = '<link href="' . htmlspecialchars($url, ENT_QUOTES) . '" rel="stylesheet">';
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
@@ -422,6 +623,31 @@ class StyleSheet
     public function has(string $name): bool
     {
         return isset($this->registry[$name]);
+    }
+
+    // ── Default sheet registry ────────────────────────────────────────────────
+
+    /**
+     * Register this instance as the process-wide default.
+     * All presets resolve to it when no explicit $sheet is passed.
+     * Call once at bootstrap — typically right after constructing your StyleSheet.
+     */
+    public function useAsDefault(): static
+    {
+        self::$default = $this;
+        return $this;
+    }
+
+    /** Return the default sheet, or null if none has been set. */
+    public static function getDefault(): ?static
+    {
+        return self::$default;
+    }
+
+    /** Clear the default (useful in tests). */
+    public static function clearDefault(): void
+    {
+        self::$default = null;
     }
 
     /** Merge additional keys into a named style entry. */

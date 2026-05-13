@@ -28,10 +28,21 @@ class Image implements Renderable
         $width  = $this->numericDimensionAttr($imgStyle, 'width');
         $height = $this->numericDimensionAttr($imgStyle, 'height');
 
+        // Emit border="0" HTML attribute when the style declares no border — prevents
+        // blue link-borders in Outlook and older email clients that ignore inline CSS.
+        $borderVal = isset($imgStyle['border']) ? trim((string) $imgStyle['border']) : null;
+        $border    = ($borderVal !== null && ($borderVal === '0' || str_starts_with($borderVal, '0 ') || $borderVal === 'none'))
+            ? ' border="0"'
+            : '';
+
+        $t   = Translator::getDefault();
+        $src = $t !== null ? $t->resolve($this->src) : $this->src;
+        $alt = $t !== null ? $t->resolve($this->alt) : $this->alt;
+
         $html  = "\n" . str_repeat("\t", $indent);
-        $html .= '<img' . $width . $height . ' style="' . $this->cssString($imgStyle) . '"';
-        $html .= ' src="' . $this->src . '"';
-        $html .= ' alt="' . htmlspecialchars($this->alt, ENT_QUOTES) . '"';
+        $html .= '<img' . $width . $height . $border . ' style="' . $this->cssString($imgStyle) . '"';
+        $html .= ' src="' . $src . '"';
+        $html .= ' alt="' . htmlspecialchars($alt, ENT_QUOTES) . '"';
         $html .= ' moz-do-not-send="true">';
 
         return $html;

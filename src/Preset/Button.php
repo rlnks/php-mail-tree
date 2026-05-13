@@ -51,6 +51,7 @@ class Button implements Renderable
         string      $fontFamily   = '',
         ?StyleSheet $sheet        = null,
     ): static {
+        $sheet ??= StyleSheet::getDefault();
         return new static(
             label:        $label,
             href:         $href,
@@ -69,11 +70,12 @@ class Button implements Renderable
         $i        = str_repeat("\t", $indent);
         $arcsize  = $this->computeArcsize();
         $inlineA  = $this->buildAnchorStyle();
+        $hrefEsc  = htmlspecialchars($this->href, ENT_QUOTES);
 
         $html  = "\n{$i}<!--[if mso]>";
         $html .= "\n{$i}<v:roundrect xmlns:v=\"urn:schemas-microsoft-com:vml\"";
         $html .= " xmlns:w=\"urn:schemas-microsoft-com:office:word\"";
-        $html .= " href=\"{$this->href}\"";
+        $html .= " href=\"{$hrefEsc}\"";
         $html .= " style=\"height:{$this->height}px;v-text-anchor:middle;width:{$this->width}px;\"";
         $html .= " arcsize=\"{$arcsize}%\" stroke=\"f\" fillcolor=\"{$this->bgColor}\">";
         $html .= "\n{$i}\t<w:anchorlock/>";
@@ -81,7 +83,7 @@ class Button implements Renderable
         $html .= "\n{$i}</v:roundrect>";
         $html .= "\n{$i}<![endif]--><!--[if !mso]><!-->"; // no newline: flush with anchor
 
-        $html .= "\n{$i}<a href=\"{$this->href}\" target=\"_blank\" style=\"{$inlineA}\">{$this->label}</a>";
+        $html .= "\n{$i}<a href=\"{$hrefEsc}\" target=\"_blank\" style=\"{$inlineA}\">{$this->label}</a>";
         $html .= "\n{$i}<!--<![endif]-->";
 
         return $html;

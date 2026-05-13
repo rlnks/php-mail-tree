@@ -44,7 +44,9 @@ class AlertBar
         int         $containerWidth = 0,
         int         $marginWidth    = 0,
         ?StyleSheet $sheet          = null,
+        string      $responsive     = '',
     ): Container {
+        $sheet ??= StyleSheet::getDefault();
         $cw = $containerWidth ?: ($sheet?->containerWidth() ?? 600);
         $mw = $marginWidth    ?: ($sheet?->marginWidth()    ?? 30);
         $bw = $cw - $mw * 2;
@@ -82,14 +84,18 @@ class AlertBar
             ],
         ]);
         $c->body->setClass('section-body');
-        $c->body->message = new Text($content, 'div', [
-            'div' => [
+        $c->body->message = new Text($content, 'p', [
+            'p' => [
                 'color'       => $variant['text'],
                 'font-weight' => 'bold',
                 'margin'      => '0',
             ],
         ]);
         $c->rmargin = deepclone($margin);
+
+        if ($responsive !== '') {
+            $c->setResponsive($responsive);
+        }
 
         return $c;
     }

@@ -54,6 +54,7 @@ class BulletList implements Renderable
         string      $bulletWidth  = '20px',
         ?StyleSheet $sheet        = null,
     ): static {
+        $sheet ??= StyleSheet::getDefault();
         return new static(
             items:       $items,
             ordered:     $ordered,

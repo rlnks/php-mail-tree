@@ -28,7 +28,11 @@ class Text implements Renderable
             $html  .= $prefix . '<' . $this->tag . ' style="' . $this->cssString($textStyle) . '">';
         }
 
-        $html .= $this->text;
+        $text = ($t = Translator::getDefault()) !== null
+            ? $t->resolve($this->text)
+            : $this->text;
+
+        $html .= $this->applyHighlight($text, $mergedStyle);
         $html .= $this->renderChildren($mergedStyle, $indent + 1);
 
         if ($this->tag !== null) {
@@ -36,5 +40,22 @@ class Text implements Renderable
         }
 
         return $html;
+    }
+
+    private function applyHighlight(string $text, array $style): string
+    {
+        if (!str_contains($text, '**')) {
+            return $text;
+        }
+        $hlStyle = $style['highlight'] ?? [];
+        if (empty($hlStyle)) {
+            return $text;
+        }
+        $css = $this->cssString($hlStyle);
+        return preg_replace(
+            '/\*\*(.+?)\*\*/s',
+            '<span style="' . $css . '">$1</span>',
+            $text,
+        );
     }
 }

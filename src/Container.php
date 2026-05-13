@@ -6,8 +6,9 @@ class Container implements Renderable
 {
     use HasChildren, HasStyle;
 
-    private ?string $class = null;
-    private ?string $id    = null;
+    private ?string $class     = null;
+    private ?string $id        = null;
+    private ?string $responsive = null;
 
     public function __construct(
         private array $style        = [],
@@ -24,10 +25,35 @@ class Container implements Renderable
         $this->id = $id;
     }
 
+    /**
+     * Apply a responsive visibility mode to this container.
+     *
+     * 'mobile-only'  → hidden on desktop (inline display:none), shown on mobile via show-sm.
+     * 'desktop-only' → visible on desktop, hidden on mobile via hidden-sm.
+     */
+    public function setResponsive(string $mode): void
+    {
+        $this->responsive = $mode;
+        $suffix = match ($mode) {
+            'mobile-only'  => 'show-sm',
+            'desktop-only' => 'hidden-sm',
+            default        => '',
+        };
+        if ($suffix !== '') {
+            $this->class = $this->class !== null ? $this->class . ' ' . $suffix : $suffix;
+        }
+    }
+
     public function build(array $style = [], int $indent = 0): string
     {
         $mergedStyle    = array_replace_recursive($style, $this->style);
         $containerStyle = $mergedStyle['container'] ?? [];
+
+        if ($this->responsive === 'mobile-only') {
+            $containerStyle['display']    = 'none';
+            $containerStyle['max-height'] = '0';
+            $containerStyle['overflow']   = 'hidden';
+        }
 
         $attrs  = 'role="presentation" cellspacing="0" cellpadding="0" align="center"';
         $attrs .= $this->id    !== null ? ' id="'    . htmlspecialchars($this->id,    ENT_QUOTES) . '"' : '';

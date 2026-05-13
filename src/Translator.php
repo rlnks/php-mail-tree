@@ -74,6 +74,31 @@ class Translator
         return $this->locale;
     }
 
+    // ── Global default ────────────────────────────────────────────────────────
+
+    private static ?self $default = null;
+
+    /**
+     * Register this instance as the process-wide default so Text::build()
+     * can resolve placeholders without an explicit reference.
+     * Called automatically by EmailDocument::build($t, $locale).
+     */
+    public function useAsDefault(): static
+    {
+        self::$default = $this;
+        return $this;
+    }
+
+    public static function getDefault(): ?static
+    {
+        return self::$default;
+    }
+
+    public static function clearDefault(): void
+    {
+        self::$default = null;
+    }
+
     // ── Resolution ────────────────────────────────────────────────────────────
 
     /**
@@ -133,7 +158,7 @@ class Translator
 
         $pattern = '/'
             . preg_quote($this->open,  '/')
-            . '(\w+)'
+            . '\s*([\w.-]+)\s*'
             . preg_quote($this->close, '/')
             . '/';
 

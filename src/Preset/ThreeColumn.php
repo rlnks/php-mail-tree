@@ -46,7 +46,9 @@ class ThreeColumn
         int         $containerWidth = 0,
         int         $marginWidth    = 0,
         ?StyleSheet $sheet          = null,
+        string      $responsive     = '',
     ): Container {
+        $sheet ??= StyleSheet::getDefault();
         $cw       = $containerWidth ?: ($sheet?->containerWidth() ?? 600);
         $mw       = $marginWidth    ?: ($sheet?->marginWidth()    ?? 30);
         $inner    = $cw - $mw * 2;
@@ -55,13 +57,10 @@ class ThreeColumn
         $col1W    = $baseColW + $remainder;           // col1 absorbs remainder
         $col23W   = $baseColW;
 
-        $containerBg = $sheet?->containerBg() ?? '#ffffff';
-
         $c = new Container([
             'container' => [
                 'width'            => "{$cw}px",
                 'max-width'        => "{$cw}px",
-                'background-color' => $containerBg,
                 'border-collapse'  => 'collapse',
                 'table-layout'     => 'fixed',
                 'mso-table-lspace' => '0pt',
@@ -81,6 +80,10 @@ class ThreeColumn
         $c->col3    = new Column(['column' => ['width' => "{$col23W}px", 'max-width' => "{$col23W}px"]]);
         $c->col3->setClass('col-3');
         $c->rmargin = deepclone($margin);
+
+        if ($responsive !== '') {
+            $c->setResponsive($responsive);
+        }
 
         return $c;
     }

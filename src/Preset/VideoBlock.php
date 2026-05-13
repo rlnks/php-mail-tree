@@ -6,9 +6,8 @@ use Rlnks\MailTree\Anchor;
 use Rlnks\MailTree\Column;
 use Rlnks\MailTree\Container;
 use Rlnks\MailTree\Image;
-use Rlnks\MailTree\Renderable;
+use Rlnks\MailTree\RawHtml;
 use Rlnks\MailTree\StyleSheet;
-use Rlnks\MailTree\Text;
 
 /**
  * Video thumbnail with an overlaid play button that links to the video URL.
@@ -50,7 +49,9 @@ class VideoBlock
         string      $playBg        = 'rgba(0,0,0,0.6)',
         int         $containerWidth = 0,
         ?StyleSheet $sheet          = null,
+        string      $responsive     = '',
     ): Container {
+        $sheet ??= StyleSheet::getDefault();
         $cw = $containerWidth ?: ($sheet?->containerWidth() ?? 600);
 
         $c = new Container([
@@ -61,16 +62,15 @@ class VideoBlock
                 'border-collapse'  => 'collapse',
                 'mso-table-lspace' => '0pt',
                 'mso-table-rspace' => '0pt',
-                'position'         => 'relative',
             ],
         ]);
         $c->setClass('devicewidth');
 
-        $col = new Column(['column' => ['padding' => '0', 'text-align' => 'center', 'position' => 'relative']]);
+        $col = new Column(['column' => ['padding' => '0', 'text-align' => 'center']]);
         $c->col = $col;
 
         // Thumbnail wrapped in a link
-        $link = new Anchor($videoUrl, ['a' => ['display' => 'block', 'border' => '0', 'position' => 'relative']]);
+        $link = new Anchor($videoUrl, ['a' => ['display' => 'block', 'border' => '0']]);
         $link->img = new Image($thumbnailSrc, $thumbnailAlt, [
             'img' => [
                 'width'     => '100%',
@@ -82,41 +82,48 @@ class VideoBlock
         ]);
         $col->link = $link;
 
-        // Play button overlay (centered using table alignment)
-        // Rendered as a separate full-width link below the image in the same cell,
-        // positioned absolutely via CSS (falls back to inline below on old clients)
-        $col->play = new Text(
-            '<a href="' . htmlspecialchars($videoUrl, ENT_QUOTES) . '" target="_blank" style="'
-                . 'display:inline-block;'
-                . 'width:64px;height:64px;line-height:64px;'
-                . 'border-radius:50%;'
-                . 'background-color:' . $playBg . ';'
-                . 'color:' . $playColor . ';'
-                . 'font-size:28px;text-align:center;text-decoration:none;'
-                . 'border:3px solid ' . $playColor . ';'
-                . 'mso-hide:all;'   // hide in Outlook (image+link is sufficient there)
-            . '">&#9654;</a>',
-            'div',
-            [
-                'div' => [
-                    'text-align' => 'center',
-                    'margin'     => '-52px 0 0 0',
-                    'mso-hide'   => 'all',
-                ],
-            ]
+        // Play button overlay as a table with negative margin — mso-hide:all hides it from Outlook
+        // Using a table instead of a div so no layout-div is introduced
+        $videoUrlEsc     = htmlspecialchars($videoUrl, ENT_QUOTES);
+        $playAnchorStyle = implode(';', [
+            'display:inline-block',
+            'width:64px',
+            'height:64px',
+            'line-height:64px',
+            'border-radius:50%',
+            'background-color:' . $playBg,
+            'color:' . $playColor,
+            'font-size:28px',
+            'text-align:center',
+            'text-decoration:none',
+            'border:3px solid ' . $playColor,
+            'mso-hide:all',
+        ]);
+        $col->play = RawHtml::make(
+            '<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center"'
+            . ' style="border-collapse:collapse;margin:-32px auto 32px;mso-hide:all;">'
+            . '<tbody><tr><td style="text-align:center;">'
+            . '<a href="' . $videoUrlEsc . '" target="_blank" style="' . $playAnchorStyle . '">&#9654;</a>'
+            . '</td></tr></tbody></table>'
         );
 
         if ($caption !== '') {
-            $col->caption = new Text($caption, 'div', [
-                'div' => [
-                    'text-align'  => 'center',
-                    'color'       => $sheet?->textColor()    ?? '#555555',
-                    'font-family' => $sheet?->fontFamily()   ?? "Arial, sans-serif",
-                    'font-size'   => '13px',
-                    'padding'     => '10px 0 0 0',
-                    'margin'      => '0',
-                ],
+            $captionStyle = implode(';', [
+                'text-align:center',
+                'color:' . ($sheet?->textColor()  ?? '#555555'),
+                'font-family:' . ($sheet?->fontFamily() ?? 'Arial, sans-serif'),
+                'font-size:13px',
+                'padding:10px 0 0 0',
             ]);
+            $col->caption = RawHtml::make(
+                '<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;width:100%;">'
+                . '<tbody><tr><td style="' . $captionStyle . '">' . $caption . '</td></tr></tbody>'
+                . '</table>'
+            );
+        }
+
+        if ($responsive !== '') {
+            $c->setResponsive($responsive);
         }
 
         return $c;

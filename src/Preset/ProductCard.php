@@ -42,10 +42,12 @@ class ProductCard
         string      $ctaLabel    = 'Shop now',
         string      $ctaUrl      = '',
         string      $ctaBgColor  = '',
-        string      $imageAlt    = '',
+        string      $imageAlt       = '',
         int         $containerWidth = 0,
         ?StyleSheet $sheet          = null,
+        string      $responsive     = '',
     ): Container {
+        $sheet ??= StyleSheet::getDefault();
         $cw      = $containerWidth ?: 0;   // 0 = inherit from parent cell (width:100%)
         $primary = $ctaBgColor ?: ($sheet?->primaryColor() ?? '#333333');
 
@@ -91,8 +93,8 @@ class ProductCard
         }
 
         if ($description !== '') {
-            $col->desc = new Text($description, 'div', [
-                'div' => [
+            $col->desc = new Text($description, 'p', [
+                'p' => [
                     'color'       => $sheet?->textColor() ?? '#555555',
                     'font-size'   => '13px',
                     'line-height' => '150%',
@@ -102,8 +104,8 @@ class ProductCard
         }
 
         if ($price !== '') {
-            $col->price = new Text($price, 'div', [
-                'div' => [
+            $col->price = new Text($price, 'p', [
+                'p' => [
                     'color'       => $sheet?->primaryColor() ?? '#333333',
                     'font-size'   => '20px',
                     'font-weight' => 'bold',
@@ -114,6 +116,10 @@ class ProductCard
 
         if ($ctaUrl !== '') {
             $col->cta = Button::make($ctaLabel, $ctaUrl, bgColor: $primary, sheet: $sheet);
+        }
+
+        if ($responsive !== '') {
+            $c->setResponsive($responsive);
         }
 
         return $c;
