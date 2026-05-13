@@ -526,6 +526,11 @@ The StyleSheet constructor takes **design tokens**, not CSS properties. Tokens a
 | `buttonHeight` | `50` | Button height in px (integer) |
 | `buttonWidth` | `200` | Button width in px (integer) |
 | `buttonFontSize` | `16px` | Button label size |
+| `darkBgColor` | `#1a1a1a` | Dark mode outer background |
+| `darkContainerBg` | `#2d2d2d` | Dark mode container background |
+| `darkTextColor` | `#dddddd` | Dark mode body copy color |
+| `darkPrimaryColor` | `''` | Dark mode accent — empty falls back to `primaryColor` |
+| `darkBorderColor` | `#444444` | Dark mode divider/border color |
 
 **Why camelCase tokens instead of CSS properties directly?**
 
@@ -701,6 +706,11 @@ $sheet->extend('hero', [
 | `get(string $name, array $overrides = [])` | Retrieve — optionally merged with one-off overrides |
 | `extend(string $name, array $extra)` | Merge additional keys into an existing definition |
 | `has(string $name)` | Check whether a name is registered |
+| `addWebFont(string $url, string $fontName = ''): static` | Register a web font URL; when `$fontName` is provided it is prepended to `fontFamily` in the theme automatically. `EmailDocument` injects the matching `<link>` tags in `<head>`. |
+| `webFontLinks(): string` | Return the `<link>` HTML tags (including Google Fonts preconnect) for all registered web fonts. Called automatically by `EmailDocument`. |
+| `addResponsiveRule(string $selector, array $properties): static` | Add a custom rule that will be emitted inside the `@media` block of `responsiveCss()`. |
+| `responsiveCss(int $breakpoint = 620, bool $darkMode = false): string` | Return the full `<style>` string for `Body::setCSS()`. |
+| `darkModeCss(): string` | Return only the dark-mode CSS block (`@media (prefers-color-scheme: dark)` + Outlook.com overrides). Called automatically by `responsiveCss(darkMode: true)`. |
 | `useAsDefault(): static` | Register this instance as the process-wide default — all presets resolve it automatically when no `$sheet` is passed. Called automatically by `new EmailDocument($sheet)`. Returns `$this` for chaining. |
 | `static getDefault(): ?static` | Return the current default, or `null` if none set |
 | `static clearDefault(): void` | Clear the default (useful in tests) |
@@ -807,8 +817,9 @@ $email->body->hero
 Returns a complete `<style>` string to inject via `$email->body->setCSS(…)`. It is the only place in the package that outputs a `<style>` block — everything else is inline CSS.
 
 ```php
-$email->body->setCSS($sheet->responsiveCss());           // breakpoint: 620px (default)
+$email->body->setCSS($sheet->responsiveCss());                // breakpoint: 620px (default)
 $email->body->setCSS($sheet->responsiveCss(breakpoint: 480)); // tighter breakpoint
+$email->body->setCSS($sheet->responsiveCss(darkMode: true));  // + dark mode block
 ```
 
 What it includes:
@@ -818,9 +829,9 @@ What it includes:
 - **Apple Mail**: kills auto-detected blue links (`a[x-apple-data-detectors]`)
 - **Gmail**: kills blue link rewrite (`u + .body a`)
 - **Samsung Mail**: kills link rewrite (`#MessageViewBody a`)
-- **`@media` responsive**: `devicewidth` tables → 100%, `section-body` → 100%, `col-2`/`col-3` → `display:block`, fluid images, base font bump
+- **`@media` responsive**: `devicewidth` tables → 100%, `section-body` → 100%, `col-2`/`col-3`/`col-4`/`col-5` → `display:block`, fluid images, base font bump
 - **Utilities**: `hidden-sm` (hide on mobile), `show-sm` (show only on mobile)
-- **Dark mode stub**: commented-out `@media (prefers-color-scheme: dark)` block — opt-in, ready to uncomment
+- **Dark mode**: `responsiveCss(darkMode: true)` emits a `@media (prefers-color-scheme: dark)` block + Outlook.com overrides driven by the `dark*` theme tokens
 
 ---
 
@@ -1187,6 +1198,33 @@ $row = NColumn::make(2, widths: [40, 60], sheet: $sheet);
 
 Columns tagged `col-N` (e.g. `col-4`) → `display:block; width:100%` on mobile. Remainder pixels after integer division are added to the first column.
 
+### `ProductCard`
+
+```php
+use Rlnks\MailTree\Preset\ProductCard;
+use Rlnks\MailTree\Preset\TwoColumn;
+
+// Standalone featured product:
+$email->body->featured = ProductCard::make(
+    imageSrc:    'https://cdn.example.com/product.jpg',
+    title:       'Widget Pro',
+    description: 'The best widget on the market.',
+    price:       '$49.99',
+    ctaLabel:    'Buy now',
+    ctaUrl:      'https://example.com/widget-pro',
+    sheet:       $sheet,
+);
+
+// Inside a multi-column layout (use ->col to plug into the column slot):
+$row = TwoColumn::make(sheet: $sheet);
+$row->left  = ProductCard::make('https://cdn/a.jpg', 'Widget A', price: '$9.99',  ctaUrl: $url1, sheet: $sheet)->col;
+$row->right = ProductCard::make('https://cdn/b.jpg', 'Widget B', price: '$19.99', ctaUrl: $url2, sheet: $sheet)->col;
+```
+
+E-commerce product card: image + title + description + price + optional CTA button. All parameters are optional — omit any you don't need. Designed to sit inside a `TwoColumn`, `ThreeColumn`, or `NColumn` cell (pass `->col` to plug into the column slot), or standalone inside a `Section` for a full-width featured product.
+
+---
+
 ### `AlertBar`
 
 ```php
@@ -1319,6 +1357,95 @@ $video = VideoBlock::make(
 ```
 
 Clickable video thumbnail with a centered play-button overlay. Since video cannot play inline in email, this renders a linked image that opens the video in a browser. Uses `FullWidthImage` internally.
+
+---
+
+## Advanced nodes
+
+### `ConditionalBlock`
+
+Wraps children in an MSO/IE conditional comment block. Use it to show or hide content specifically in Outlook 2007–2019, or to show content in all clients *except* Outlook.
+
+```php
+use Rlnks\MailTree\ConditionalBlock;
+
+// Outlook-only content:
+$block = new ConditionalBlock('mso');
+$block->notice = new Text('Please view this email in a modern client.', 'div');
+$email->body->notice = $block;
+
+// Non-Outlook content (hidden in Outlook):
+$block = new ConditionalBlock('!mso');
+$block->hero = FullWidthImage::make($src, 'Hero');
+$email->body->hero = $block;
+```
+
+Common condition strings: `'mso'`, `'!mso'`, `'gte mso 9'`, `'(gte mso 9)|(IE)'`. When the condition starts with `!`, the inverted syntax (`<!--[if !mso]><!-->…<!--<![endif]-->`) is used automatically.
+
+---
+
+### `ForLoopBlock`
+
+Renders a list of items using a builder callback. The builder receives each item and its zero-based index and must return a `Renderable` node or a raw HTML string. No wrapper element is added.
+
+```php
+use Rlnks\MailTree\ForLoopBlock;
+
+// Simple text list:
+$section->body->features = ForLoopBlock::make(
+    ['Fast', 'Cross-client', 'Accessible'],
+    fn($item, $i) => new Text("• {$item}", 'div', ['div' => ['margin' => '0 0 6px 0']]),
+);
+
+// Dynamic product rows from a data source:
+$section->body->items = ForLoopBlock::make(
+    $orderLines,
+    fn($line, $i) => new Text("{$line['name']} — {$line['price']}", 'div'),
+);
+```
+
+Use `ForLoopBlock` when the node structure itself varies per item. For uniform repetition (same structure, different data), prefer `DataTable`, `BulletList`, or `PricingTable`.
+
+---
+
+### `RawHtml`
+
+Escape hatch that emits a pre-built HTML string verbatim as a `Renderable` node. The style cascade is intentionally bypassed.
+
+```php
+use Rlnks\MailTree\RawHtml;
+
+$col->overlay = RawHtml::make('<table role="presentation" style="…">…</table>');
+```
+
+Use sparingly — only when the tree primitives cannot express a particular email-safe structure.
+
+---
+
+## `HtmlImporter`
+
+Converts an existing HTML email into ready-to-run MailTree PHP code. The converter parses the HTML bottom-up, extracts theme tokens, groups columns into section rows, propagates common inline styles upward, and generates a full PHP template.
+
+```php
+use Rlnks\MailTree\HtmlImporter;
+
+$php = HtmlImporter::convert(file_get_contents('legacy.html'));
+file_put_contents('rebuilt.php', $php);
+
+// Custom output filename (embedded in the generated build call):
+$php = HtmlImporter::convert($html, outputFile: 'output.html');
+```
+
+**What the generated file includes:**
+
+- Auto-detected `StyleSheet` with `bgColor`, `containerBg`, `primaryColor`, `fontFamily`, `baseFontSize`, and `containerWidth` extracted from the source HTML.
+- Named `$imgN` and `$linkN` variables for all images and links found.
+- Email skeleton: `EmailDocument`, `Body`, and one section per detected row — `Spacer`, `Divider`, `Section`, `TwoColumn`, `ThreeColumn`, or `NColumn` as appropriate.
+- Style setters generated from propagated and per-column inline styles.
+- Content assignments: `Text`, `Image`, `Anchor`, `Button`, `BulletList`, `Divider`.
+- A `Translator` stub and a `build()` + `resolve()` call at the end.
+
+The output is a starting point — review and adjust structure, styles, and placeholder keys before using in production.
 
 ---
 
