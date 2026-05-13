@@ -20,11 +20,12 @@ class StyleSheet
 {
     private static ?self $default = null;
 
-    private array $theme;
-    private array $registry        = [];
-    private array $baseStyles      = [];
-    private array $responsiveRules = [];
-    private array $webFonts        = [];
+    private array  $theme;
+    private string $baseFontFamily  = '';
+    private array  $registry        = [];
+    private array  $baseStyles      = [];
+    private array  $responsiveRules = [];
+    private array  $webFonts        = [];
 
     private const DEFAULTS = [
         'primaryColor'   => '#333333',
@@ -67,9 +68,10 @@ class StyleSheet
             }
         }
 
-        $this->theme      = array_replace(self::DEFAULTS, $tokens);
-        $this->baseStyles = $baseStyles;
-        $this->registry   = $registry;
+        $this->theme          = array_replace(self::DEFAULTS, $tokens);
+        $this->baseFontFamily = $this->theme['fontFamily'];
+        $this->baseStyles     = $baseStyles;
+        $this->registry       = $registry;
     }
 
     /** Returns true when at least one value in the array is itself an array (named-style shape). */
@@ -535,11 +537,21 @@ CSS;
     {
         $this->webFonts[] = ['url' => $url, 'name' => $fontName];
 
-        if ($fontName !== '' && !str_contains($this->theme['fontFamily'], $fontName)) {
-            $this->theme['fontFamily'] = $fontName . ', ' . $this->theme['fontFamily'];
+        // Rebuild fontFamily in declaration order (first added = first in stack).
+        // Font names containing spaces are quoted with single quotes per CSS spec.
+        $namedFonts = array_filter(array_column($this->webFonts, 'name'));
+        if (!empty($namedFonts)) {
+            $quoted = array_map(fn(string $n): string => $this->quoteFontName($n), $namedFonts);
+            $this->theme['fontFamily'] = implode(', ', $quoted) . ', ' . $this->baseFontFamily;
         }
 
         return $this;
+    }
+
+    /** Wraps a font-family name in single quotes when it contains spaces. */
+    private function quoteFontName(string $name): string
+    {
+        return str_contains($name, ' ') ? "'{$name}'" : $name;
     }
 
     /**
