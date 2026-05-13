@@ -217,6 +217,19 @@ class EmailDocument implements Renderable
         return trim($text);
     }
 
+    public function toArray(): array
+    {
+        return [
+            'type'      => 'EmailDocument',
+            'subject'   => $this->subject,
+            'preheader' => $this->preheader,
+            'lang'      => $this->lang,
+            'links'     => $this->links,
+            'hidden'    => $this->hidden,
+            'children'  => $this->childrenToArray(),
+        ];
+    }
+
     private function defaultStyle(): array
     {
         return [

@@ -83,6 +83,26 @@ class DataTable implements Renderable
         );
     }
 
+    public function toArray(): array
+    {
+        return [
+            'type'        => 'DataTable',
+            'headers'     => $this->headers,
+            'rows'        => $this->rows,
+            'footer'      => $this->footer,
+            'headerBg'    => $this->headerBg,
+            'headerColor' => $this->headerColor,
+            'rowBg'       => $this->rowBg,
+            'altRowBg'    => $this->altRowBg,
+            'footerBg'    => $this->footerBg,
+            'footerColor' => $this->footerColor,
+            'borderColor' => $this->borderColor,
+            'fontFamily'  => $this->fontFamily,
+            'fontSize'    => $this->fontSize,
+            'cellPadding' => $this->cellPadding,
+        ];
+    }
+
     public function build(array $style = [], int $indent = 0): string
     {
         $t  = str_repeat("\t", $indent);

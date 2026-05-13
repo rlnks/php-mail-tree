@@ -81,6 +81,7 @@ class FullWidthImage
             $c->setResponsive($responsive);
         }
 
+        $c->setPreset('FullWidthImage');
         return $c;
     }
 }

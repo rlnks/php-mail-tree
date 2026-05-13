@@ -86,6 +86,7 @@ class NColumn
             $c->setResponsive($responsive);
         }
 
+        $c->setPreset('NColumn');
         return $c;
     }
 

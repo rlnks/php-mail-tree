@@ -5,8 +5,31 @@ namespace Rlnks\MailTree;
 trait HasChildren
 {
     protected array $children = [];
+    private string  $preset   = '';
     private ?object $parentRef = null;
     private ?string $parentKey = null;
+
+    public function setPreset(string $preset): static
+    {
+        $this->preset = $preset;
+        return $this;
+    }
+
+    public function getPreset(): string
+    {
+        return $this->preset;
+    }
+
+    protected function childrenToArray(): array
+    {
+        $result = [];
+        foreach ($this->children as $key => $child) {
+            if (method_exists($child, 'toArray')) {
+                $result[$key] = $child->toArray();
+            }
+        }
+        return $result;
+    }
 
     public function __set(string $name, mixed $value): void
     {

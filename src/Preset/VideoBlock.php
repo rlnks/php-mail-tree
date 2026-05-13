@@ -126,6 +126,7 @@ class VideoBlock
             $c->setResponsive($responsive);
         }
 
+        $c->setPreset('VideoBlock');
         return $c;
     }
 }

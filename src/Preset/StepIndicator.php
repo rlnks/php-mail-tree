@@ -61,6 +61,20 @@ class StepIndicator implements Renderable
         );
     }
 
+    public function toArray(): array
+    {
+        return [
+            'type'           => 'StepIndicator',
+            'steps'          => $this->steps,
+            'current'        => $this->current,
+            'activeColor'    => $this->activeColor,
+            'completedColor' => $this->completedColor,
+            'upcomingColor'  => $this->upcomingColor,
+            'fontFamily'     => $this->fontFamily,
+            'fontSize'       => $this->fontSize,
+        ];
+    }
+
     public function build(array $style = [], int $indent = 0): string
     {
         $t  = str_repeat("\t", $indent);

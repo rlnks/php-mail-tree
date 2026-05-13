@@ -85,6 +85,7 @@ class ThreeColumn
             $c->setResponsive($responsive);
         }
 
+        $c->setPreset('ThreeColumn');
         return $c;
     }
 }

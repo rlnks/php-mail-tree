@@ -22,6 +22,14 @@ class RawHtml implements Renderable
         return new static($html);
     }
 
+    public function toArray(): array
+    {
+        return [
+            'type' => 'RawHtml',
+            'html' => $this->html,
+        ];
+    }
+
     public function build(array $style = [], int $indent = 0): string
     {
         return $this->html;

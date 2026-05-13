@@ -97,6 +97,7 @@ class AlertBar
             $c->setResponsive($responsive);
         }
 
+        $c->setPreset('AlertBar');
         return $c;
     }
 }

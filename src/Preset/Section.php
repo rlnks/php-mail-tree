@@ -76,6 +76,7 @@ class Section
             $c->setResponsive($responsive);
         }
 
+        $c->setPreset('Section');
         return $c;
     }
 }

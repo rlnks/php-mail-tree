@@ -44,6 +44,24 @@ class Container implements Renderable
         }
     }
 
+    public function toArray(): array
+    {
+        $data = [
+            'type'       => 'Container',
+            'mso'        => $this->mso,
+            'class'      => $this->class,
+            'id'         => $this->id,
+            'responsive' => $this->responsive,
+            'style'      => $this->style,
+            'hidden'     => $this->hidden,
+            'children'   => $this->childrenToArray(),
+        ];
+        if ($this->preset !== '') {
+            $data['_tag'] = $this->preset;
+        }
+        return $data;
+    }
+
     public function build(array $style = [], int $indent = 0): string
     {
         $mergedStyle    = array_replace_recursive($style, $this->style);

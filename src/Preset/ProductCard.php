@@ -122,6 +122,7 @@ class ProductCard
             $c->setResponsive($responsive);
         }
 
+        $c->setPreset('ProductCard');
         return $c;
     }
 }

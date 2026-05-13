@@ -139,6 +139,7 @@ class Quote
             $c->setResponsive($responsive);
         }
 
+        $c->setPreset('Quote');
         return $c;
     }
 }

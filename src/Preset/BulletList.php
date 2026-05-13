@@ -68,6 +68,22 @@ class BulletList implements Renderable
         );
     }
 
+    public function toArray(): array
+    {
+        return [
+            'type'        => 'BulletList',
+            'items'       => $this->items,
+            'ordered'     => $this->ordered,
+            'bulletColor' => $this->bulletColor,
+            'textColor'   => $this->textColor,
+            'fontFamily'  => $this->fontFamily,
+            'fontSize'    => $this->fontSize,
+            'lineHeight'  => $this->lineHeight,
+            'itemSpacing' => $this->itemSpacing,
+            'bulletWidth' => $this->bulletWidth,
+        ];
+    }
+
     public function build(array $style = [], int $indent = 0): string
     {
         $t   = str_repeat("\t", $indent);

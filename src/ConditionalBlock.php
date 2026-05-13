@@ -35,6 +35,15 @@ class ConditionalBlock implements Renderable
         private readonly string $condition = 'mso',
     ) {}
 
+    public function toArray(): array
+    {
+        return [
+            'type'      => 'ConditionalBlock',
+            'condition' => $this->condition,
+            'children'  => $this->childrenToArray(),
+        ];
+    }
+
     public function build(array $style = [], int $indent = 0): string
     {
         $t        = str_repeat("\t", $indent);

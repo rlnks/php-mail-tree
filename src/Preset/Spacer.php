@@ -62,6 +62,7 @@ class Spacer
             $c->setResponsive($responsive);
         }
 
+        $c->setPreset('Spacer');
         return $c;
     }
 }

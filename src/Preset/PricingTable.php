@@ -172,6 +172,7 @@ class PricingTable
             $c->setResponsive($responsive);
         }
 
+        $c->setPreset('PricingTable');
         return $c;
     }
 }

@@ -65,6 +65,22 @@ class Button implements Renderable
         );
     }
 
+    public function toArray(): array
+    {
+        return [
+            'type'         => 'Button',
+            'label'        => $this->label,
+            'href'         => $this->href,
+            'width'        => $this->width,
+            'height'       => $this->height,
+            'bgColor'      => $this->bgColor,
+            'textColor'    => $this->textColor,
+            'fontFamily'   => $this->fontFamily,
+            'fontSize'     => $this->fontSize,
+            'borderRadius' => $this->borderRadius,
+        ];
+    }
+
     public function build(array $style = [], int $indent = 0): string
     {
         $i        = str_repeat("\t", $indent);

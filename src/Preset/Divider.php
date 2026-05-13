@@ -65,6 +65,7 @@ class Divider
             $c->setResponsive($responsive);
         }
 
+        $c->setPreset('Divider');
         return $c;
     }
 }

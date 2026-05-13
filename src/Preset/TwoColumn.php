@@ -79,6 +79,7 @@ class TwoColumn
             $c->setResponsive($responsive);
         }
 
+        $c->setPreset('TwoColumn');
         return $c;
     }
 }

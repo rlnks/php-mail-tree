@@ -64,6 +64,17 @@ class SocialBar implements Renderable
         );
     }
 
+    public function toArray(): array
+    {
+        return [
+            'type'        => 'SocialBar',
+            'links'       => $this->links,
+            'iconSize'    => $this->iconSize,
+            'iconSpacing' => $this->iconSpacing,
+            'align'       => $this->align,
+        ];
+    }
+
     public function build(array $style = [], int $indent = 0): string
     {
         if (empty($this->links)) {

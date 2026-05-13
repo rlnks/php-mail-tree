@@ -17,6 +17,21 @@ class Column implements Renderable
         $this->class = $class;
     }
 
+    public function toArray(): array
+    {
+        $data = [
+            'type'     => 'Column',
+            'class'    => $this->class,
+            'style'    => $this->style,
+            'hidden'   => $this->hidden,
+            'children' => $this->childrenToArray(),
+        ];
+        if ($this->preset !== '') {
+            $data['_tag'] = $this->preset;
+        }
+        return $data;
+    }
+
     public function build(array $style = [], int $indent = 0): string
     {
         $mergedStyle = array_replace_recursive($style, $this->style);

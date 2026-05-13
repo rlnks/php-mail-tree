@@ -134,6 +134,7 @@ class Coupon
             $c->setResponsive($responsive);
         }
 
+        $c->setPreset('Coupon');
         return $c;
     }
 }

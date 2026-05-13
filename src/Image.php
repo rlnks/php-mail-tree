@@ -20,6 +20,17 @@ class Image implements Renderable
         }
     }
 
+    public function toArray(): array
+    {
+        return [
+            'type'   => 'Image',
+            'src'    => $this->src,
+            'alt'    => $this->alt,
+            'style'  => $this->style,
+            'hidden' => $this->hidden,
+        ];
+    }
+
     public function build(array $style = [], int $indent = 0): string
     {
         $mergedStyle = array_replace_recursive($style, $this->style);
