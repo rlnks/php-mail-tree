@@ -2,3 +2,15 @@ vendor/
 composer.lock
 .env
 *.local.php
+
+# Claude Code internal files
+.claude/
+
+# Generated email outputs (run generate_*.php locally to produce these)
+*.html
+
+# Scratch / import files
+css_fixes*.md
+email-builder-class.php
+kia_imported.php
+run_import.php
