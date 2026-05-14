@@ -171,9 +171,47 @@ class HtmlImporter
             return;
         }
 
+        // Detect flat "sibling tables as sections" layout: the email has no outer
+        // wrapper table, just multiple 600px-wide section tables side-by-side in
+        // <body>, <center>, or a <div>. findOuterContainer() picks one of them;
+        // we must process all siblings so no sections are missed.
+        $siblings = $this->findSiblingTables($container);
+        if (count($siblings) > 1) {
+            foreach ($siblings as $sib) {
+                foreach ($this->xpath->query('./tbody/tr|./tr', $sib) as $tr) {
+                    $this->parseRowIntoSections($tr);
+                }
+            }
+            return;
+        }
+
         foreach ($this->xpath->query('./tbody/tr|./tr', $container) as $tr) {
             $this->parseRowIntoSections($tr);
         }
+    }
+
+    /**
+     * Returns $table plus all its sibling <table> elements at the same DOM level,
+     * provided the parent is not a table cell (which would mean we're nested, not flat).
+     *
+     * @return \DOMNode[]
+     */
+    private function findSiblingTables(\DOMNode $table): array
+    {
+        $parent = $table->parentNode;
+        if (!$parent) { return [$table]; }
+
+        // If the parent is a table-related node we're inside a cell — not flat layout
+        if (in_array($parent->nodeName, ['td', 'th', 'table', 'tbody', 'tr'], true)) {
+            return [$table];
+        }
+
+        // Parent is <body>, <center>, <div>, etc. — collect sibling tables
+        $tables = [];
+        foreach ($parent->childNodes as $child) {
+            if ($child->nodeName === 'table') { $tables[] = $child; }
+        }
+        return count($tables) > 1 ? $tables : [$table];
     }
 
     /**
