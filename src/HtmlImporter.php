@@ -811,7 +811,7 @@ class HtmlImporter
         switch ($item['type'] ?? '') {
             case 'heading':
             case 'text':
-                return new Text($item['content'] ?? '', $item['tag'] ?? 'div', $style);
+                return new Text($item['content'] ?? '', $item['tag'] ?? 'div', $this->textNodeStyle($style));
             case 'image':
                 return $imgPool[$item['src']] ?? new Image($item['src'] ?? '', $item['alt'] ?? '');
             case 'linked_image':
@@ -838,6 +838,24 @@ class HtmlImporter
             default:
                 return null;
         }
+    }
+
+    /**
+     * For leaf Text nodes, Text::build() only uses the 'text' style key.
+     * Remap TEXT_PROPS + text-align from 'column' into 'text' so they are
+     * applied as inline styles on the rendered tag element.
+     */
+    private function textNodeStyle(array $style): array
+    {
+        $col = $style['column'] ?? null;
+        if (!$col) { return $style; }
+
+        $tagProps = array_merge(self::TEXT_PROPS, ['text-align']);
+        $textStyle = [];
+        foreach ($tagProps as $p) {
+            if (isset($col[$p])) { $textStyle[$p] = $col[$p]; }
+        }
+        return $textStyle ? ['text' => $textStyle] : [];
     }
 
     private function generateSectionCode(string $name, array $section, array $imgVarMap): array
