@@ -2,6 +2,8 @@
 
 namespace Rlnks\MailTree;
 
+use Rlnks\MailTree\Preset;
+
 /**
  * HTML → MailTree PHP code converter (bottom-up, style-propagating).
  *
@@ -45,6 +47,15 @@ class HtmlImporter
         string $outputFile = 'output.html',
     ): string {
         return (new self($html))->generate($outputFile);
+    }
+
+    /**
+     * Parse HTML and return a live EmailDocument object (serializable via Serializer).
+     * Useful for the builder API: import HTML → serialize to JSON → send to frontend.
+     */
+    public static function toDocument(string $html, ?StyleSheet $sheet = null): EmailDocument
+    {
+        return (new self($html))->buildDocument($sheet);
     }
 
     // ── CSS property → MailTree style-key mapping ──────────────────────────────
@@ -670,6 +681,125 @@ class HtmlImporter
         }
 
         return $code;
+    }
+
+    // ── Object builder (mirrors generate() but instantiates real nodes) ───────
+
+    private function buildDocument(?StyleSheet $sheet): EmailDocument
+    {
+        $sheet ??= new StyleSheet($this->theme);
+        $doc   = new EmailDocument($sheet);
+        $doc->body = new Body();
+        $doc->body->setCSS($sheet->responsiveCss());
+
+        // Build image pool: src → Image node
+        $imgPool = [];
+        foreach ($this->images as $src => $img) {
+            $style = $img['width']
+                ? ['img' => ['width' => $img['width'] . 'px', 'display' => 'block', 'border' => '0']]
+                : ['img' => ['display' => 'block', 'border' => '0']];
+            $imgPool[$src] = new Image($src, $img['alt'], $style);
+        }
+
+        $sIdx = 0;
+        foreach ($this->sections as $section) {
+            $sName = 'section' . (++$sIdx);
+            $node  = $this->buildSection($section, $imgPool, $sheet);
+            if ($node !== null) {
+                $doc->body->$sName = $node;
+            }
+        }
+
+        return $doc;
+    }
+
+    private function buildSection(array $section, array $imgPool, StyleSheet $sheet): ?object
+    {
+        $type = $section['type'] ?? 'unknown';
+
+        if ($type === 'spacer') {
+            return Preset\Spacer::make($section['height'], $sheet);
+        }
+
+        if ($type === 'divider') {
+            return Preset\Divider::make(sheet: $sheet, color: $section['color'] ?? '');
+        }
+
+        if ($type === 'section') {
+            $node = Preset\Section::make(sheet: $sheet);
+            if (!empty($section['containerStyle'])) { $node->setStyle($section['containerStyle']); }
+            if (!empty($section['columnStyle']))    { $node->body->setStyle(['column' => $section['columnStyle']['column'] ?? []]); }
+            $counters = [];
+            foreach ($section['content'] as $item) {
+                $iName = $this->semanticName($item, $counters);
+                $child = $this->buildItem($item, $imgPool, $sheet);
+                if ($child !== null) { $node->body->$iName = $child; }
+            }
+            return $node;
+        }
+
+        if ($type === 'columns') {
+            $n    = $section['columns'];
+            $node = match ($n) {
+                2       => Preset\TwoColumn::make(sheet: $sheet),
+                3       => Preset\ThreeColumn::make(sheet: $sheet),
+                default => Preset\NColumn::make($n, sheet: $sheet),
+            };
+            if (!empty($section['containerStyle'])) { $node->setStyle($section['containerStyle']); }
+            if (!empty($section['textStyle']))       { $node->setStyle($section['textStyle']); }
+            foreach (($section['cols'] ?? []) as $ci => $col) {
+                $cName = 'col' . ($ci + 1);
+                if (!empty($col['columnStyle']) && isset($node->$cName)) {
+                    $node->$cName->setStyle($col['columnStyle']);
+                }
+                $counters = [];
+                foreach ($col['content'] as $item) {
+                    $iName = $this->semanticName($item, $counters);
+                    $child = $this->buildItem($item, $imgPool, $sheet);
+                    if ($child !== null && isset($node->$cName)) {
+                        $node->$cName->$iName = $child;
+                    }
+                }
+            }
+            return $node;
+        }
+
+        return null;
+    }
+
+    private function buildItem(array $item, array $imgPool, StyleSheet $sheet): ?object
+    {
+        $style = $item['style'] ?? [];
+        switch ($item['type'] ?? '') {
+            case 'heading':
+            case 'text':
+                return new Text($item['content'] ?? '', $item['tag'] ?? 'div', $style);
+            case 'image':
+                return $imgPool[$item['src']] ?? new Image($item['src'] ?? '', $item['alt'] ?? '');
+            case 'linked_image':
+                $anchor = new Anchor($item['href'] ?? '');
+                $anchor->img = $imgPool[$item['src']] ?? new Image($item['src'] ?? '', $item['alt'] ?? '');
+                return $anchor;
+            case 'button':
+                return Preset\Button::make(
+                    label:   $item['label'] ?? '',
+                    href:    $item['href']  ?? '',
+                    bgColor: $item['bg']    ?? '',
+                );
+            case 'link':
+                $anchor = new Anchor($item['href'] ?? '');
+                $anchor->label = new Text($item['text'] ?? '', 'span');
+                return $anchor;
+            case 'list':
+                return Preset\BulletList::make(
+                    items:   $item['items']   ?? [],
+                    ordered: $item['ordered'] ?? false,
+                );
+            case 'divider':
+                return Preset\Divider::make(sheet: $sheet);
+            default:
+                return null;
+        }
     }
 
     private function generateSectionCode(string $name, array $section, array $imgVarMap): array
