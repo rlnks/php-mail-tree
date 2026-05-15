@@ -24,7 +24,7 @@ class Column implements Renderable
             'class'    => $this->class,
             'style'    => $this->style,
             'hidden'   => $this->hidden,
-            'children' => $this->childrenToArray(),
+            'children' => (object) $this->childrenToArray(),
         ];
         if ($this->preset !== '') {
             $data['_tag'] = $this->preset;

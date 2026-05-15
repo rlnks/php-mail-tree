@@ -54,7 +54,7 @@ class Container implements Renderable
             'responsive' => $this->responsive,
             'style'      => $this->style,
             'hidden'     => $this->hidden,
-            'children'   => $this->childrenToArray(),
+            'children'   => (object) $this->childrenToArray(),
         ];
         if ($this->preset !== '') {
             $data['_tag'] = $this->preset;

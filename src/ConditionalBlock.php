@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace Rlnks\MailTree;
 
@@ -6,14 +6,14 @@ namespace Rlnks\MailTree;
  * Wraps children in an MSO/IE conditional comment block.
  *
  * The `mso` flag in Container hardcodes the outer-column wrapper pattern for
- * Outlook 2007–2019. ConditionalBlock is the general-purpose version: any
+ * Outlook 2007â€“2019. ConditionalBlock is the general-purpose version: any
  * condition string, any content, placed anywhere in the tree.
  *
  * Common condition strings:
- *   'mso'              → <!--[if mso]>…<![endif]-->
- *   '!mso'             → <!--[if !mso]><!-->…<!--<![endif]-->   (non-Outlook)
- *   'gte mso 9'        → <!--[if gte mso 9]>…<![endif]-->
- *   '(gte mso 9)|(IE)' → <!--[if (gte mso 9)|(IE)]>…<![endif]-->
+ *   'mso'              â†’ <!--[if mso]>â€¦<![endif]-->
+ *   '!mso'             â†’ <!--[if !mso]><!-->â€¦<!--<![endif]-->   (non-Outlook)
+ *   'gte mso 9'        â†’ <!--[if gte mso 9]>â€¦<![endif]-->
+ *   '(gte mso 9)|(IE)' â†’ <!--[if (gte mso 9)|(IE)]>â€¦<![endif]-->
  *
  * For "show only on non-Outlook clients" set $invertSyntax = true, which uses
  * the <!--[if !mso]><!--> / <!--<![endif]--> pattern instead of the standard one.
@@ -40,7 +40,7 @@ class ConditionalBlock implements Renderable
         return [
             'type'      => 'ConditionalBlock',
             'condition' => $this->condition,
-            'children'  => $this->childrenToArray(),
+            'children'  => (object) $this->childrenToArray(),
         ];
     }
 
@@ -50,7 +50,7 @@ class ConditionalBlock implements Renderable
         $inverted = str_starts_with(ltrim($this->condition), '!');
 
         if ($inverted) {
-            // <!--[if !mso]><!--> … <!--<![endif]-->
+            // <!--[if !mso]><!--> â€¦ <!--<![endif]-->
             $open  = "\n{$t}<!--[if {$this->condition}]><!--->";
             $close = "\n{$t}<!---<![endif]-->";
         } else {

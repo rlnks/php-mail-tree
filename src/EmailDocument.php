@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace Rlnks\MailTree;
 
@@ -37,10 +37,10 @@ class EmailDocument implements Renderable
     }
 
     /**
-     * Set the BCP 47 language tag for the <html lang="…"> attribute.
+     * Set the BCP 47 language tag for the <html lang="â€¦"> attribute.
      * Defaults to 'en'. Pass the same value you use for translation locales
-     * ('fr', 'fr-CA', 'de', …). Locale underscores are normalised to hyphens
-     * automatically ('fr_CA' → 'fr-CA').
+     * ('fr', 'fr-CA', 'de', â€¦). Locale underscores are normalised to hyphens
+     * automatically ('fr_CA' â†’ 'fr-CA').
      * When build() is called with a $locale argument that locale takes precedence.
      */
     public function setLang(string $lang): static
@@ -57,7 +57,7 @@ class EmailDocument implements Renderable
     /**
      * Inject a raw HTML string into <head> (rendered after <link> tags).
      *
-     * Use for elements that require attributes beyond href/rel — for example
+     * Use for elements that require attributes beyond href/rel â€” for example
      * crossorigin on preconnect links, integrity hashes, or Open Graph <meta>
      * tags. Web fonts registered via StyleSheet::addWebFont() are injected
      * automatically; only use this for anything beyond that.
@@ -72,7 +72,7 @@ class EmailDocument implements Renderable
      * Render the complete HTML document.
      *
      * Pass $t and $locale to resolve translation placeholders and process
-     * **...** highlighting in the same pass — the cascade CSS context is
+     * **...** highlighting in the same pass â€” the cascade CSS context is
      * available simultaneously, so per-section highlight overrides work correctly.
      *
      * Without $t the output contains raw {{placeholders}} as before, which can
@@ -170,11 +170,11 @@ class EmailDocument implements Renderable
         // Remove HTML comments including Outlook conditionals
         $html = preg_replace('/<!--.*?-->/s', '', $html);
 
-        // Block boundaries → newlines (opening and closing tags)
+        // Block boundaries â†’ newlines (opening and closing tags)
         $html = preg_replace('/<(?:p|div|br\s*\/?|h[1-6]|tr|td|li)[^>]*>/i', "\n", $html);
         $html = preg_replace('/<\/(?:p|div|h[1-6]|td|li)[^>]*>/i', "\n", $html);
 
-        // Links → "label ( url )", skip anchors with no real destination (#, empty)
+        // Links â†’ "label ( url )", skip anchors with no real destination (#, empty)
         $html = preg_replace_callback(
             '/<a[^>]+href=["\']([^"\']*)["\'][^>]*>(.*?)<\/a>/si',
             function (array $m): string {
@@ -188,7 +188,7 @@ class EmailDocument implements Renderable
             $html,
         );
 
-        // Images → "[alt]" or nothing
+        // Images â†’ "[alt]" or nothing
         $html = preg_replace_callback(
             '/<img[^>]+alt=["\']([^"\']*)["\'][^>]*>/i',
             fn(array $m): string => $m[1] !== '' ? '[' . $m[1] . ']' : '',
@@ -197,10 +197,10 @@ class EmailDocument implements Renderable
 
         $text = strip_tags($html);
 
-        // Decode HTML entities (&amp; → &, &nbsp; → NBSP, etc.)
+        // Decode HTML entities (&amp; â†’ &, &nbsp; â†’ NBSP, etc.)
         $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        // Remove zero-width characters (decoded &zwnj;, &zwsp;, BOM, word-joiner…)
+        // Remove zero-width characters (decoded &zwnj;, &zwsp;, BOM, word-joinerâ€¦)
         $text = preg_replace('/[\x{200B}-\x{200D}\x{2060}\x{FEFF}\x{00AD}]/u', '', $text);
 
         // Normalize whitespace (treat decoded &nbsp; U+00A0 as regular space)
@@ -208,7 +208,7 @@ class EmailDocument implements Renderable
         $text = preg_replace('/\n[ \t]*/m', "\n", $text);
         $text = preg_replace('/\n{3,}/', "\n\n", $text);
 
-        // Prepend subject — translator is already active from the build() call above
+        // Prepend subject â€” translator is already active from the build() call above
         $subject = Translator::getDefault()?->resolve($this->subject) ?? $this->subject;
         if ($subject !== '') {
             $text = $subject . "\n\n" . trim($text);
@@ -226,7 +226,7 @@ class EmailDocument implements Renderable
             'lang'      => $this->lang,
             'links'     => $this->links,
             'hidden'    => $this->hidden,
-            'children'  => $this->childrenToArray(),
+            'children'  => (object) $this->childrenToArray(),
         ];
     }
 

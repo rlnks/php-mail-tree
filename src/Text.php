@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace Rlnks\MailTree;
 
@@ -20,7 +20,7 @@ class Text implements Renderable
             'tag'      => $this->tag,
             'style'    => $this->style,
             'hidden'   => $this->hidden,
-            'children' => $this->childrenToArray(),
+            'children' => (object) $this->childrenToArray(),
         ];
     }
 

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace Rlnks\MailTree;
 
@@ -31,7 +31,7 @@ class Body implements Renderable
             'preheader' => $this->preheader,
             'style'     => $this->style,
             'hidden'    => $this->hidden,
-            'children'  => $this->childrenToArray(),
+            'children'  => (object) $this->childrenToArray(),
         ];
     }
 

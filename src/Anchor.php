@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace Rlnks\MailTree;
 
@@ -23,7 +23,7 @@ class Anchor implements Renderable
             'href'     => $this->href,
             'style'    => $this->style,
             'hidden'   => $this->hidden,
-            'children' => $this->childrenToArray(),
+            'children' => (object) $this->childrenToArray(),
         ];
     }
 
@@ -31,7 +31,7 @@ class Anchor implements Renderable
     {
         $mergedStyle = array_replace_recursive($style, $this->style);
 
-        // Empty href → transparent wrapper: render children as if the Anchor weren't there.
+        // Empty href â†’ transparent wrapper: render children as if the Anchor weren't there.
         if ($this->href === '') {
             return $this->renderChildren($mergedStyle, $indent);
         }
