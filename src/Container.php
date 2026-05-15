@@ -62,7 +62,7 @@ class Container implements Renderable
         return $data;
     }
 
-    public function build(array $style = [], int $indent = 0): string
+    public function build(array $style = [], int $indent = 0, ?string $mbKey = null): string
     {
         $mergedStyle    = array_replace_recursive($style, $this->style);
         $containerStyle = $mergedStyle['container'] ?? [];
@@ -80,13 +80,15 @@ class Container implements Renderable
         $attrs .= $this->dimensionAttr($containerStyle, 'width');
         $attrs .= $this->dimensionAttr($containerStyle, 'height');
 
+        $mbAttr = $mbKey !== null ? ' data-mb-key="' . htmlspecialchars($mbKey, ENT_QUOTES) . '"' : '';
+
         $t    = $indent;
         $html = '';
 
         if ($this->mso) {
             $html .= '<!--[if (gte mso 9)|(IE)]>';
         }
-        $html .= "\n" . str_repeat("\t", $t)     . '<table ' . $attrs . ' style="' . $this->cssString($containerStyle) . '">';
+        $html .= "\n" . str_repeat("\t", $t)     . '<table' . $mbAttr . ' ' . $attrs . ' style="' . $this->cssString($containerStyle) . '">';
         $html .= "\n" . str_repeat("\t", $t + 1) . '<tbody>';
         $html .= "\n" . str_repeat("\t", $t + 2) . '<tr>';
         if ($this->mso) {

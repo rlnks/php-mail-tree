@@ -75,7 +75,7 @@ class SocialBar implements Renderable
         ];
     }
 
-    public function build(array $style = [], int $indent = 0): string
+    public function build(array $style = [], int $indent = 0, ?string $mbKey = null): string
     {
         if (empty($this->links)) {
             return '';

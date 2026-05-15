@@ -78,7 +78,7 @@ class EmailDocument implements Renderable
      * Without $t the output contains raw {{placeholders}} as before, which can
      * then be resolved separately via $t->resolve($base, $locale).
      */
-    public function build(array $style = [], int $indent = 0, ?Translator $t = null, ?string $locale = null): string
+    public function build(array $style = [], int $indent = 0, ?string $mbKey = null, ?Translator $t = null, ?string $locale = null): string
     {
         $translator = $t ?? $this->translator;
         if ($translator !== null) {
@@ -157,7 +157,7 @@ class EmailDocument implements Renderable
      */
     public function buildText(array $style = [], ?Translator $t = null, ?string $locale = null): string
     {
-        $html = $this->build($style, 0, $t, $locale);
+        $html = $this->build($style, 0, null, $t, $locale);
 
         // Remove non-visible sections entirely (content would pollute plain text)
         $html = preg_replace('/<head\b[^>]*>.*?<\/head>/si', '', $html);

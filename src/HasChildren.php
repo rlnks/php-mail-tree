@@ -69,12 +69,12 @@ trait HasChildren
     protected function renderChildren(array $style, int $indent): string
     {
         $html = '';
-        foreach ($this->children as $child) {
+        foreach ($this->children as $key => $child) {
             if ($child instanceof Renderable) {
                 if (method_exists($child, 'isHidden') && $child->isHidden()) {
                     continue;
                 }
-                $html .= $child->build($style, $indent);
+                $html .= $child->build($style, $indent, $key);
             }
         }
         return $html;

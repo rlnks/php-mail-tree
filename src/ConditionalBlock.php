@@ -44,7 +44,7 @@ class ConditionalBlock implements Renderable
         ];
     }
 
-    public function build(array $style = [], int $indent = 0): string
+    public function build(array $style = [], int $indent = 0, ?string $mbKey = null): string
     {
         $t        = str_repeat("\t", $indent);
         $inverted = str_starts_with(ltrim($this->condition), '!');

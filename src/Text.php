@@ -24,7 +24,7 @@ class Text implements Renderable
         ];
     }
 
-    public function build(array $style = [], int $indent = 0): string
+    public function build(array $style = [], int $indent = 0, ?string $mbKey = null): string
     {
         $mergedStyle = array_replace_recursive($style, $this->style);
 
@@ -37,7 +37,8 @@ class Text implements Renderable
 
         if ($this->tag !== null) {
             $prefix = $this->tag !== 'span' ? "\n" . str_repeat("\t", $indent) : '';
-            $html  .= $prefix . '<' . $this->tag . ' style="' . $this->cssString($textStyle) . '">';
+            $mbAttr = $mbKey !== null ? ' data-mb-key="' . htmlspecialchars($mbKey, ENT_QUOTES) . '"' : '';
+            $html  .= $prefix . '<' . $this->tag . $mbAttr . ' style="' . $this->cssString($textStyle) . '">';
         }
 
         $text = ($t = Translator::getDefault()) !== null

@@ -31,7 +31,7 @@ class Image implements Renderable
         ];
     }
 
-    public function build(array $style = [], int $indent = 0): string
+    public function build(array $style = [], int $indent = 0, ?string $mbKey = null): string
     {
         $mergedStyle = array_replace_recursive($style, $this->style);
         $imgStyle    = $mergedStyle['img'] ?? [];
@@ -50,8 +50,10 @@ class Image implements Renderable
         $src = $t !== null ? $t->resolve($this->src) : $this->src;
         $alt = $t !== null ? $t->resolve($this->alt) : $this->alt;
 
+        $mbAttr = $mbKey !== null ? ' data-mb-key="' . htmlspecialchars($mbKey, ENT_QUOTES) . '"' : '';
+
         $html  = "\n" . str_repeat("\t", $indent);
-        $html .= '<img' . $width . $height . $border . ' style="' . $this->cssString($imgStyle) . '"';
+        $html .= '<img' . $mbAttr . $width . $height . $border . ' style="' . $this->cssString($imgStyle) . '"';
         $html .= ' src="' . $src . '"';
         $html .= ' alt="' . htmlspecialchars($alt, ENT_QUOTES) . '"';
         $html .= ' moz-do-not-send="true">';

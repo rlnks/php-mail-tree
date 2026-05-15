@@ -32,7 +32,7 @@ class Column implements Renderable
         return $data;
     }
 
-    public function build(array $style = [], int $indent = 0): string
+    public function build(array $style = [], int $indent = 0, ?string $mbKey = null): string
     {
         $mergedStyle = array_replace_recursive($style, $this->style);
         $colStyle    = $mergedStyle['column'] ?? [];
@@ -41,7 +41,9 @@ class Column implements Renderable
         $attrs .= $this->dimensionAttr($colStyle, 'height');
         $attrs .= $this->class !== null ? ' class="' . htmlspecialchars($this->class, ENT_QUOTES) . '"' : '';
 
-        $html  = "\n" . str_repeat("\t", $indent) . '<td' . $attrs . ' style="' . $this->cssString($colStyle) . '">';
+        $mbAttr = $mbKey !== null ? ' data-mb-key="' . htmlspecialchars($mbKey, ENT_QUOTES) . '"' : '';
+
+        $html  = "\n" . str_repeat("\t", $indent) . '<td' . $mbAttr . $attrs . ' style="' . $this->cssString($colStyle) . '">';
         $html .= $this->renderChildren($mergedStyle, $indent + 1);
         $html .= "\n" . str_repeat("\t", $indent) . '</td>';
 

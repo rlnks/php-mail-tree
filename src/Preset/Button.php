@@ -81,7 +81,7 @@ class Button implements Renderable
         ];
     }
 
-    public function build(array $style = [], int $indent = 0): string
+    public function build(array $style = [], int $indent = 0, ?string $mbKey = null): string
     {
         $i        = str_repeat("\t", $indent);
         $arcsize  = $this->computeArcsize();

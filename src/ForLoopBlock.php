@@ -58,7 +58,7 @@ class ForLoopBlock implements Renderable
         return new static($items, $builder);
     }
 
-    public function build(array $style = [], int $indent = 0): string
+    public function build(array $style = [], int $indent = 0, ?string $mbKey = null): string
     {
         $html = '';
         foreach ($this->items as $index => $item) {

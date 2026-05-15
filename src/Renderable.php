@@ -4,5 +4,5 @@ namespace Rlnks\MailTree;
 
 interface Renderable
 {
-    public function build(array $style = [], int $indent = 0): string;
+    public function build(array $style = [], int $indent = 0, ?string $mbKey = null): string;
 }
