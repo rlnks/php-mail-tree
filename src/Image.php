@@ -36,6 +36,11 @@ class Image implements Renderable
         $mergedStyle = array_replace_recursive($style, $this->style);
         $imgStyle    = $mergedStyle['img'] ?? [];
 
+        $flat = array_filter($this->style, fn($v) => !is_array($v));
+        if ($flat) {
+            $imgStyle = array_replace($imgStyle, $flat);
+        }
+
         $width  = $this->numericDimensionAttr($imgStyle, 'width');
         $height = $this->numericDimensionAttr($imgStyle, 'height');
 

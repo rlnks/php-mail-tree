@@ -37,6 +37,11 @@ class Column implements Renderable
         $mergedStyle = array_replace_recursive($style, $this->style);
         $colStyle    = $mergedStyle['column'] ?? [];
 
+        $flat = array_filter($this->style, fn($v) => !is_array($v));
+        if ($flat) {
+            $colStyle = array_replace($colStyle, $flat);
+        }
+
         $attrs  = $this->dimensionAttr($colStyle, 'width');
         $attrs .= $this->dimensionAttr($colStyle, 'height');
         $attrs .= $this->class !== null ? ' class="' . htmlspecialchars($this->class, ENT_QUOTES) . '"' : '';

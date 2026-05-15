@@ -80,6 +80,11 @@ class Container implements Renderable
         $attrs .= $this->dimensionAttr($containerStyle, 'width');
         $attrs .= $this->dimensionAttr($containerStyle, 'height');
 
+        $flat = array_filter($this->style, fn($v) => !is_array($v));
+        if ($flat) {
+            $containerStyle = array_replace($containerStyle, $flat);
+        }
+
         $mbAttr = $mbKey !== null ? ' data-mb-key="' . htmlspecialchars($mbKey, ENT_QUOTES) . '"' : '';
 
         $t    = $indent;

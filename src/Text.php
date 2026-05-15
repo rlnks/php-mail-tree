@@ -33,6 +33,13 @@ class Text implements Renderable
             $textStyle = array_replace_recursive($textStyle, $mergedStyle[$this->tag]);
         }
 
+        // Flat CSS properties (non-array values) in node style apply directly to the element.
+        // This lets builder users write {"font-size":"30px"} instead of {"text":{"font-size":"30px"}}.
+        $flat = array_filter($this->style, fn($v) => !is_array($v));
+        if ($flat) {
+            $textStyle = array_replace($textStyle, $flat);
+        }
+
         $html = '';
 
         if ($this->tag !== null) {

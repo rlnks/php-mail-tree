@@ -37,6 +37,10 @@ class Anchor implements Renderable
         }
 
         $aStyle = $mergedStyle[‘a’] ?? [];
+        $flat   = array_filter($this->style, fn($v) => !is_array($v));
+        if ($flat) {
+            $aStyle = array_replace($aStyle, $flat);
+        }
         $href   = Translator::getDefault()?->resolve($this->href) ?? $this->href;
         $mbAttr = $mbKey !== null ? ‘ data-mb-key="’ . htmlspecialchars($mbKey, ENT_QUOTES) . ‘"’ : ‘’;
 
