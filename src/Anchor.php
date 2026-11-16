@@ -31,20 +31,20 @@ class Anchor implements Renderable
     {
         $mergedStyle = array_replace_recursive($style, $this->style);
 
-        // Empty href → transparent wrapper: render children as if the Anchor weren’t there.
-        if ($this->href === ‘’) {
+        // Empty href → transparent wrapper: render children as if the Anchor weren't there.
+        if ($this->href === '') {
             return $this->renderChildren($mergedStyle, $indent);
         }
 
-        $aStyle = $mergedStyle[‘a’] ?? [];
+        $aStyle = $mergedStyle['a'] ?? [];
         $flat   = array_filter($this->style, fn($v) => !is_array($v));
         if ($flat) {
             $aStyle = array_replace($aStyle, $flat);
         }
         $href   = Translator::getDefault()?->resolve($this->href) ?? $this->href;
-        $mbAttr = $mbKey !== null ? ‘ data-mb-key="’ . htmlspecialchars($mbKey, ENT_QUOTES) . ‘"’ : ‘’;
+        $mbAttr = $mbKey !== null ? ' data-mb-key="' . htmlspecialchars($mbKey, ENT_QUOTES) . '"' : '';
 
-        $html  = "\n" . str_repeat("\t", $indent) . ‘<a’ . $mbAttr . ‘ style="’ . $this->cssString($aStyle) . ‘" href="’ . $href . ‘">’;
+        $html  = "\n" . str_repeat("\t", $indent) . '<a' . $mbAttr . ' style="' . $this->cssString($aStyle) . '" href="' . $href . '">';
         $html .= $this->renderChildren($mergedStyle, $indent + 1);
         $html .= '</a>';
 

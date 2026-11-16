@@ -4,6 +4,7 @@ namespace Rlnks\MailTree\Preset;
 
 use Rlnks\MailTree\Renderable;
 use Rlnks\MailTree\StyleSheet;
+use Rlnks\MailTree\Translator;
 
 /**
  * CTA button with full Outlook / VML support.
@@ -86,7 +87,9 @@ class Button implements Renderable
         $i        = str_repeat("\t", $indent);
         $arcsize  = $this->computeArcsize();
         $inlineA  = $this->buildAnchorStyle();
-        $hrefEsc  = htmlspecialchars($this->href, ENT_QUOTES);
+        $translator = Translator::getDefault();
+        $label      = $translator?->resolve($this->label) ?? $this->label;
+        $hrefEsc    = htmlspecialchars($translator?->resolve($this->href) ?? $this->href, ENT_QUOTES);
 
         $html  = "\n{$i}<!--[if mso]>";
         $html .= "\n{$i}<v:roundrect xmlns:v=\"urn:schemas-microsoft-com:vml\"";
@@ -95,11 +98,11 @@ class Button implements Renderable
         $html .= " style=\"height:{$this->height}px;v-text-anchor:middle;width:{$this->width}px;\"";
         $html .= " arcsize=\"{$arcsize}%\" stroke=\"f\" fillcolor=\"{$this->bgColor}\">";
         $html .= "\n{$i}\t<w:anchorlock/>";
-        $html .= "\n{$i}\t<center style=\"color:{$this->textColor};font-family:{$this->fontFamily};font-size:{$this->fontSize};font-weight:bold;\">{$this->label}</center>";
+        $html .= "\n{$i}\t<center style=\"color:{$this->textColor};font-family:{$this->fontFamily};font-size:{$this->fontSize};font-weight:bold;\">{$label}</center>";
         $html .= "\n{$i}</v:roundrect>";
         $html .= "\n{$i}<![endif]--><!--[if !mso]><!-->"; // no newline: flush with anchor
 
-        $html .= "\n{$i}<a href=\"{$hrefEsc}\" target=\"_blank\" style=\"{$inlineA}\">{$this->label}</a>";
+        $html .= "\n{$i}<a href=\"{$hrefEsc}\" target=\"_blank\" style=\"{$inlineA}\">{$label}</a>";
         $html .= "\n{$i}<!--<![endif]-->";
 
         return $html;
